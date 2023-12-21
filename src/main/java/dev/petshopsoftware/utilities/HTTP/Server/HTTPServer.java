@@ -47,7 +47,6 @@ public class HTTPServer {
 		this(null, null, port);
 	}
 
-
 	protected void init() {
 		try {
 			this.setupNGINX();
