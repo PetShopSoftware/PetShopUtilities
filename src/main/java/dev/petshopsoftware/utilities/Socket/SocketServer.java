@@ -37,7 +37,7 @@ public abstract class SocketServer extends WebSocketServer {
 			try {
 				socketServer.stop();
 			} catch (InterruptedException e) {
-				throw new RuntimeException(e);
+				Logger.get("main").error("Could not stop socket server " + socketServer.name + ".");
 			}
 		});
 	}
