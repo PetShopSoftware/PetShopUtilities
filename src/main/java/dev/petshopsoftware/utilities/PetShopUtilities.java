@@ -1,10 +1,6 @@
 package dev.petshopsoftware.utilities;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import dev.petshopsoftware.utilities.HTTP.Server.HTTPMethod;
-import dev.petshopsoftware.utilities.HTTP.Server.HTTPResponse;
-import dev.petshopsoftware.utilities.HTTP.Server.HTTPServer;
-import dev.petshopsoftware.utilities.HTTP.Server.Route;
+import dev.petshopsoftware.utilities.HTTP.Server.*;
 import dev.petshopsoftware.utilities.JSON.ArrayBuilder;
 
 public class PetShopUtilities {
@@ -20,12 +16,16 @@ public class PetShopUtilities {
 	}
 
 	@Route(path = "/posts", method = HTTPMethod.GET)
-	public static HTTPResponse getPosts(JsonNode data) {
-		return HTTPResponse.OK.message("Posts fetched successfully.").data(new ArrayBuilder().build());
+	public static HTTPResponse getPosts(HTTPData data) {
+		return HTTPResponse.OK
+				.message("Posts fetched successfully.")
+				.data(new ArrayBuilder().build());
 	}
 
 	@Route(path = "/posts/:id", method = HTTPMethod.GET)
-	public static HTTPResponse getPost(JsonNode data) {
-		return HTTPResponse.OK.message("Post'" + data.path("id").asText("NOT FOUND") + "'fetched successfully.").data(new ArrayBuilder().build());
+	public static HTTPResponse getPost(HTTPData data) throws Exception {
+		return HTTPResponse.OK
+				.message("Post'" + data.pathParams().get("id") + "'fetched successfully.")
+				.data(new ArrayBuilder().build());
 	}
 }

@@ -1,5 +1,7 @@
 package dev.petshopsoftware.utilities.HTTP.Server;
 
+import dev.petshopsoftware.utilities.Util.ParsingMode;
+
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 
@@ -9,5 +11,5 @@ public @interface Route {
 
 	HTTPMethod method();
 
-//	ParsingMode requestParsingMode() default ParsingMode.JSON;
+	ParsingMode parsingMode() default ParsingMode.JSON;
 }

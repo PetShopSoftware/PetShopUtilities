@@ -2,9 +2,10 @@ package dev.petshopsoftware.utilities.HTTP.Server;
 
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpServer;
-import dev.petshopsoftware.utilities.JSON.ObjectBuilder;
 import dev.petshopsoftware.utilities.Util.ParsingMode;
 import dev.petshopsoftware.utilities.Util.ReflectionUtil;
+import dev.petshopsoftware.utilities.Util.Types.Pair;
+import dev.petshopsoftware.utilities.Util.Types.Trio;
 
 import javax.naming.NameNotFoundException;
 import java.io.IOException;
@@ -20,7 +21,7 @@ import java.util.Map;
 
 public class HTTPServer {
 	private final HttpServer server;
-	private final Map<String, Method> routes = new HashMap<>();
+	private final Map<String, Pair<Route, Method>> routes = new HashMap<>();
 
 	public HTTPServer(int port) {
 		try {
@@ -38,14 +39,20 @@ public class HTTPServer {
 	protected void handleRequest(HttpExchange exchange) {
 		HTTPMethod method = HTTPMethod.valueOf(exchange.getRequestMethod());
 		String path = exchange.getRequestURI().toString();
-		HTTPResponse response = null;
+		HTTPResponse response;
 		Exception exception = null;
+		Trio<Route, Method, Map<String, String>> routeData = null;
 		try {
-			response = resolveRoute(exchange, method, path);
+			routeData = resolveRoute(exchange, method, path);
+			HTTPData data = new HTTPData(routeData.getV1(), exchange, this, routeData.getV3(), readBody(exchange));
+			response = (HTTPResponse) routeData.getV2().invoke(null, data);
 		} catch (NameNotFoundException e) {
 			response = getNotFound();
 			exception = e;
-		} catch (InvocationTargetException e) {
+		} catch (UnsupportedOperationException e) {
+			response = getBadRequest(routeData == null ? null : routeData.getV1());
+			exception = e;
+		} catch (RuntimeException | InvocationTargetException | IllegalAccessException | IOException e) {
 			response = getInternalError();
 			exception = e;
 		}
@@ -53,7 +60,7 @@ public class HTTPServer {
 		send(exchange, response);
 	}
 
-	protected HTTPResponse resolveRoute(HttpExchange exchange, HTTPMethod method, String path) throws NameNotFoundException, InvocationTargetException {
+	protected Trio<Route, Method, Map<String, String>> resolveRoute(HttpExchange exchange, HTTPMethod method, String path) throws NameNotFoundException {
 		String[] pathSegments = path.split("/");
 		for (String routeID : routes.keySet()) {
 			String[] routeIDParts = routeID.split(" ");
@@ -61,27 +68,33 @@ public class HTTPServer {
 			if (method != routeMethod) continue;
 			String[] routeSegments = routeIDParts[1].split("/");
 			if (pathSegments.length != routeSegments.length) continue;
-			ObjectBuilder pathParams = new ObjectBuilder();
+			Map<String, String> pathParams = new HashMap<>();
 			boolean found = true;
 			for (int i = 0; i < pathSegments.length; i++) {
 				String pathSegment = pathSegments[i];
 				String routeSegment = routeSegments[i];
 				if (routeSegment.startsWith(":"))
-					pathParams.with(routeSegment.substring(1), pathSegment);
+					pathParams.put(routeSegment.substring(1), pathSegment);
 				else if (!pathSegment.equals(routeSegment)) {
 					found = false;
 					break;
 				}
 			}
 			if (!found) continue;
-			Method route = routes.get(routeID);
 			try {
-				return (HTTPResponse) route.invoke(null, pathParams.build());
-			} catch (IllegalAccessException | InvocationTargetException | RuntimeException e) {
-				throw new InvocationTargetException(e, "An error occurred executing route " + routeID + ".");
+				Pair<Route, Method> routeData = routes.get(routeID);
+				Route routeInfo = routeData.getV1();
+				Method route = routeData.getV2();
+				return new Trio<>(routeInfo, route, pathParams);
+			} catch (RuntimeException e) {
+				throw new RuntimeException("An error occurred while resolving route " + routeID + ".", e);
 			}
 		}
 		throw new NameNotFoundException("Could not find route " + method + " " + path + ".");
+	}
+
+	protected byte[] readBody(HttpExchange exchange) throws IOException {
+		return exchange.getRequestBody().readAllBytes();
 	}
 
 	protected void send(HttpExchange exchange, HTTPResponse response) {
@@ -120,8 +133,11 @@ public class HTTPServer {
 					handleRouteRegistration(id, "Route method must return HTTPResponse.");
 					continue;
 				}
-				// TODO check for method signature
-//				if (!validatePath(path)) {
+				if (route.getParameterCount() != 1 || route.getParameterTypes()[0] != HTTPData.class) {
+					handleRouteRegistration(id, "Route method must take HTTPData as parameter.");
+					continue;
+				}
+//				TODO if (!validatePath(path)) {
 //					handleRouteRegistrationError(id, "Route path is not valid.");
 //					continue;
 //				}
@@ -129,7 +145,7 @@ public class HTTPServer {
 					handleRouteRegistration(id, "Another route is already defined at the specified path.");
 					continue;
 				}
-				this.routes.put(id, route);
+				this.routes.put(id, new Pair<>(info, route));
 				handleRouteRegistration(id, null);
 			}
 		}
@@ -148,7 +164,7 @@ public class HTTPServer {
 		return server;
 	}
 
-	public Map<String, Method> getRoutes() {
+	public Map<String, Pair<Route, Method>> getRoutes() {
 		return routes;
 	}
 
@@ -156,17 +172,24 @@ public class HTTPServer {
 		return HTTPResponse.NOT_FOUND;
 	}
 
+	public HTTPResponse getBadRequest(Route route) {
+		if (route != null && route.parsingMode() == ParsingMode.JSON)
+			return HTTPResponse.INVALID_JSON;
+		return HTTPResponse.INVALID_BODY;
+	}
+
 	public HTTPResponse getInternalError() {
 		return HTTPResponse.INTERNAL_ERROR;
 	}
 
 	protected void handleRequestResponse(HttpExchange exchange, HTTPResponse response, Exception e) {
-		System.out.println(exchange.getRequestMethod() + " " + exchange.getRequestURI());
+		System.out.println("Incoming request: " + exchange.getRequestMethod() + " " + exchange.getRequestURI());
+		System.out.println(response);
 		if (e != null) e.printStackTrace();
 	}
 
 	protected void handleRouteRegistration(String routeID, String error) {
-		if (error == null) System.out.println(routeID + " SUCCESS");
-		else System.out.println(routeID + " FAILED: " + error);
+		if (error == null) System.out.println(routeID + " registered successfully.");
+		else System.out.println("Error while registering route " + routeID + ": " + error);
 	}
 }
