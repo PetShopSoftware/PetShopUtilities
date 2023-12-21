@@ -14,15 +14,15 @@ public class NGINXUtil {
 	public static String CERTIFICATES_PATH = "/etc/petshopsoftware/certificates";
 	public static String EMAIL = "email@example.com";
 
-	public static void setupServerBlock(String subdomain, String domain, int port) throws IOException {
+	public static void setupServerBlock(String subdomain, String domain, int port) throws Exception {
 		if (!isNGINXInstalled())
-			throw new UnsupportedOperationException("NGINX could not be found in the system.");
+			throw new Exception("NGINX could not be found in the system.");
 
 		String sslPath;
 		try {
 			sslPath = setupSSLCertificate(subdomain, domain, EMAIL);
 		} catch (Exception e) {
-			throw new UnsupportedOperationException(e);
+			throw new Exception(e);
 		}
 
 		String serverBlockFileName = subdomain + "." + domain;
@@ -45,10 +45,10 @@ public class NGINXUtil {
 			else startNGINX();
 		}
 
-		if (!isNGINXRunning()) throw new IllegalStateException("NGINX was not started properly.");
+		if (!isNGINXRunning()) throw new Exception("NGINX was not started properly.");
 	}
 
-	public static String setupSSLCertificate(String subdomain, String domain, String email) {
+	private static String setupSSLCertificate(String subdomain, String domain, String email) throws Exception {
 		if (!isCertBotInstalled())
 			throw new UnsupportedOperationException("CertBot could not be found in the system.");
 		String fullDomain = subdomain + "." + domain;
@@ -57,13 +57,13 @@ public class NGINXUtil {
 			Process process = new ProcessBuilder().command("sudo", "certbot", "certonly", "--webroot", "-w", certificatePath, "-d", fullDomain, "--non-interactive", "--agree-tos", "--email", email).start();
 			int exitCode = process.waitFor();
 			if (exitCode != 0) throw new IllegalStateException("CertBot exited with code " + exitCode);
-		} catch (IOException | InterruptedException | IllegalStateException e) {
-			throw new IllegalStateException("Failed to obtain certificate for " + fullDomain, e);
+		} catch (Exception e) {
+			throw new Exception("Failed to obtain certificate for " + fullDomain, e);
 		}
 		return certificatePath;
 	}
 
-	public static String buildServerBlock(String subdomain, String domain, String sslPath, int port) {
+	private static String buildServerBlock(String subdomain, String domain, String sslPath, int port) {
 		return ConfigUtil.readFileFromResources("nginx/server_block")
 				.replace("%subdomain%", subdomain)
 				.replace("%domain%", domain)
@@ -71,23 +71,15 @@ public class NGINXUtil {
 				.replace("%port%", String.valueOf(port));
 	}
 
-	public static void reloadNGINX() throws IOException {
-		try {
-			new ProcessBuilder().command("sudo nginx -s reload").start().waitFor();
-		} catch (InterruptedException e) {
-			throw new RuntimeException(e);
-		}
+	private static void reloadNGINX() throws IOException, InterruptedException {
+		new ProcessBuilder().command("sudo nginx -s reload").start().waitFor();
 	}
 
-	public static void startNGINX() {
-		try {
-			new ProcessBuilder("sudo", "systemctl", "start", "nginx").start().waitFor();
-		} catch (IOException | InterruptedException e) {
-			throw new RuntimeException(e);
-		}
+	private static void startNGINX() throws IOException, InterruptedException {
+		new ProcessBuilder("sudo", "systemctl", "start", "nginx").start().waitFor();
 	}
 
-	public static boolean isNGINXInstalled() {
+	private static boolean isNGINXInstalled() {
 		try {
 			Process process = new ProcessBuilder().command("nginx -v").start();
 			return process.waitFor() == 0;
@@ -96,7 +88,7 @@ public class NGINXUtil {
 		}
 	}
 
-	public static boolean isNGINXRunning() {
+	private static boolean isNGINXRunning() {
 		ProcessBuilder processBuilder = new ProcessBuilder();
 		processBuilder.command("bash", "-c", "systemctl is-active nginx");
 		try {
@@ -113,7 +105,7 @@ public class NGINXUtil {
 		}
 	}
 
-	public static boolean isCertBotInstalled() {
+	private static boolean isCertBotInstalled() {
 		try {
 			Process process = new ProcessBuilder().command("bash", "-c", "command -v certbot").start();
 			BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()));
