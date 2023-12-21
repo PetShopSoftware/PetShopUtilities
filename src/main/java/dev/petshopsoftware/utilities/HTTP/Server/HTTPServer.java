@@ -23,6 +23,7 @@ import java.util.List;
 import java.util.Map;
 
 public class HTTPServer {
+	private final String id;
 	private final String subdomain;
 	private final String domain;
 	private final Logger logger;
@@ -36,10 +37,11 @@ public class HTTPServer {
 		} catch (IOException e) {
 			throw new RuntimeException(e);
 		}
+		this.id = (subdomain == null ? RandomUtil.generateIdentifier(8) : subdomain);
 		this.subdomain = subdomain;
 		this.domain = domain;
 		this.port = port;
-		this.logger = Logger.get("http-" + (subdomain == null ? RandomUtil.generateIdentifier(8) : subdomain));
+		this.logger = Logger.get("http-" + id);
 		init();
 	}
 
@@ -54,12 +56,14 @@ public class HTTPServer {
 			logger.error(Log.fromException(e));
 		}
 		server.createContext("/", this::handleRequest);
+		logger.info("Server " + id + " initialized successfully.");
 	}
 
 	protected void setupNGINX() throws Exception {
 		if (subdomain == null || domain == null) return;
 		try {
 			NGINXUtil.setupServerBlock(subdomain, domain, port);
+			logger.info("NGINX setup successfully.");
 		} catch (Exception e) {
 			throw new Exception("NGINX could not be setup successfully.", e);
 		}
@@ -78,7 +82,6 @@ public class HTTPServer {
 			response = (HTTPResponse) routeData.getV2().invoke(null, data);
 		} catch (NameNotFoundException e) {
 			response = getNotFound();
-			logger.error(Log.fromException(e));
 		} catch (JsonProcessingException e) {
 			response = getBadRequest(routeData.getV1());
 		} catch (Exception e) {
@@ -183,10 +186,16 @@ public class HTTPServer {
 
 	public void start() {
 		server.start();
+		logger.info("Server started successfully at http://localhost:" + port + (subdomain != null && domain != null ? " (https://" + subdomain + "." + domain + ")" : "") + ".");
 	}
 
 	public void stop() {
 		server.stop(0);
+		logger.info("Server stopped successfully.");
+	}
+
+	public String getID() {
+		return id;
 	}
 
 	public String getSubdomain() {
