@@ -1,14 +1,38 @@
 package dev.petshopsoftware.utilities.Logging;
 
-import java.io.PrintStream;
+import java.io.*;
+import java.nio.file.Paths;
+import java.text.SimpleDateFormat;
 import java.util.*;
 
 public class Logger {
 	public static final Map<String, Logger> LOGGERS = new HashMap<>();
 	public static final LinkedList<Log> LOG_HISTORY = new LinkedList<>();
 	private static final List<LogHandler> GLOBAL_HANDLERS = new ArrayList<>();
-	public static String LOGS_DIRECTORY = "./logs";
+	public static String LOGS_DIRECTORY = "logs";
 	public static String DEFAULT_FORMAT = "[%time%] [%level%] [%logger%] %message%";
+	private static BufferedWriter WRITER = null;
+
+	static {
+		File logsDirectory = new File(LOGS_DIRECTORY);
+		if (!logsDirectory.exists())
+			if (!logsDirectory.mkdirs())
+				try {
+					throw new IOException("Logs directory could not be created.");
+				} catch (IOException e) {
+					Logger.get("main").error(Log.fromException(e));
+				}
+
+		String logFileName = new SimpleDateFormat("dd-MM-yyyy_HH-mm-ss").format(new Date(System.currentTimeMillis())) + ".log";
+		File file = new File(Paths.get(LOGS_DIRECTORY, logFileName).toUri());
+		if (!file.exists())
+			try {
+				if (!file.createNewFile()) throw new IOException("Log file could not be created.");
+				WRITER = new BufferedWriter(new FileWriter(file));
+			} catch (IOException e) {
+				Logger.get("main").error(Log.fromException(e));
+			}
+	}
 
 	private final String id;
 	private final LinkedList<Log> logs = new LinkedList<>();
@@ -49,10 +73,6 @@ public class Logger {
 		GLOBAL_HANDLERS.addAll(List.of(handlers));
 	}
 
-	public Log message(Level level, String message, String format) {
-		return new Log(id, level, message, System.currentTimeMillis(), format);
-	}
-
 	synchronized public void log(Log message) {
 		for (LogHandler handler : GLOBAL_HANDLERS)
 			message = handler.preLog(message);
@@ -61,6 +81,16 @@ public class Logger {
 
 		LOG_HISTORY.add(message);
 		logs.add(message);
+
+		if (WRITER != null) {
+			try {
+				WRITER.write(message.toString());
+				WRITER.newLine();
+				WRITER.flush();
+			} catch (IOException e) {
+				this.error(Log.fromException(new RuntimeException("Could not write to log file.")));
+			}
+		}
 
 		PrintStream printStream;
 		if (level == Level.ERROR || level == Level.FATAL)
@@ -80,6 +110,10 @@ public class Logger {
 
 	public void log(Level level, String message) {
 		log(level, message, format);
+	}
+
+	public Log message(Level level, String message, String format) {
+		return new Log(id, level, message, System.currentTimeMillis(), format);
 	}
 
 	public void fatal(String message) {
