@@ -20,20 +20,41 @@ import java.util.List;
 import java.util.Map;
 
 public class HTTPServer {
+	private final String subdomain;
+	private final String domain;
+	private final int port;
 	private final HttpServer server;
 	private final Map<String, Pair<Route, Method>> routes = new HashMap<>();
 
-	public HTTPServer(int port) {
+	public HTTPServer(String subdomain, String domain, int port) {
+		this.subdomain = subdomain;
+		this.domain = domain;
+		this.port = port;
 		try {
 			this.server = HttpServer.create(new InetSocketAddress(port), 0);
 			init();
-		} catch (IOException e) {
+		} catch (Exception e) {
 			throw new RuntimeException(e);
 		}
 	}
 
+	public HTTPServer(int port) {
+		this(null, null, port);
+	}
+
+
 	protected void init() {
+		this.setupNGINX();
 		server.createContext("/", this::handleRequest);
+	}
+
+	protected void setupNGINX() {
+		if (subdomain == null || domain == null) return;
+		try {
+			NGINXUtil.setupServerBlock(subdomain, domain, port);
+		} catch (Exception e) {
+			throw new RuntimeException("NGINX could not be setup successfully.", e);
+		}
 	}
 
 	protected void handleRequest(HttpExchange exchange) {
@@ -43,7 +64,7 @@ public class HTTPServer {
 		Exception exception = null;
 		Trio<Route, Method, Map<String, String>> routeData = null;
 		try {
-			routeData = resolveRoute(exchange, method, path);
+			routeData = resolveRoute(method, path);
 			HTTPData data = new HTTPData(routeData.getV1(), exchange, this, routeData.getV3(), readBody(exchange));
 			response = (HTTPResponse) routeData.getV2().invoke(null, data);
 		} catch (NameNotFoundException e) {
@@ -60,7 +81,7 @@ public class HTTPServer {
 		send(exchange, response);
 	}
 
-	protected Trio<Route, Method, Map<String, String>> resolveRoute(HttpExchange exchange, HTTPMethod method, String path) throws NameNotFoundException {
+	protected Trio<Route, Method, Map<String, String>> resolveRoute(HTTPMethod method, String path) throws NameNotFoundException {
 		String[] pathSegments = path.split("/");
 		for (String routeID : routes.keySet()) {
 			String[] routeIDParts = routeID.split(" ");
@@ -191,5 +212,9 @@ public class HTTPServer {
 	protected void handleRouteRegistration(String routeID, String error) {
 		if (error == null) System.out.println(routeID + " registered successfully.");
 		else System.out.println("Error while registering route " + routeID + ": " + error);
+	}
+
+	protected void handleNGINXError(Exception e) {
+		e.printStackTrace();
 	}
 }

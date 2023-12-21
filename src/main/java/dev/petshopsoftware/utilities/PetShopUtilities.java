@@ -5,14 +5,9 @@ import dev.petshopsoftware.utilities.JSON.ArrayBuilder;
 
 public class PetShopUtilities {
 	public static void main(String[] args) {
-		new HTTPServer(8000)
+		new HTTPServer("api", "gigtoolbox.com", 8000)
 				.handlers(PetShopUtilities.class)
 				.start();
-//        try {
-//            NGINXUtil.setupServerBlock("api", "gigtoolbox.com", "/etc/letsencrypt/live/api.gigtoolbox.com", 3010);
-//        } catch (IOException e) {
-//            e.printStackTrace();
-//        }
 	}
 
 	@Route(path = "/posts", method = HTTPMethod.GET)
