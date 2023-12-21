@@ -7,7 +7,13 @@ public class RandomUtil {
 	public static final Random R = new Random();
 
 	public static String generateIdentifier(int length) {
-		String uuid = UUID.randomUUID().toString().replace("-", "");
-		return uuid.substring(0, Math.min(length, uuid.length()));
+		StringBuilder uuid = new StringBuilder();
+		while (uuid.length() < length)
+			uuid.append(UUID.randomUUID().toString().replace("-", ""));
+		return uuid.substring(0, length);
+	}
+
+	public static String generateIdentifier() {
+		return generateIdentifier(32);
 	}
 }
