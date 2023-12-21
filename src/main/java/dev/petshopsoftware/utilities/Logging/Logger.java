@@ -6,6 +6,7 @@ import java.util.*;
 public class Logger {
 	public static final Map<String, Logger> LOGGERS = new HashMap<>();
 	public static final LinkedList<Log> LOG_HISTORY = new LinkedList<>();
+	private static final List<LogHandler> GLOBAL_HANDLERS = new ArrayList<>();
 	public static String LOGS_DIRECTORY = "./logs";
 	public static String DEFAULT_FORMAT = "[%time%] [%level%] [%logger%] %message%";
 
@@ -40,11 +41,21 @@ public class Logger {
 		return logger;
 	}
 
+	public static List<LogHandler> getGlobalHandlers() {
+		return GLOBAL_HANDLERS;
+	}
+
+	public static void globalHandlers(LogHandler... handlers) {
+		GLOBAL_HANDLERS.addAll(List.of(handlers));
+	}
+
 	public Log message(Level level, String message, String format) {
 		return new Log(id, level, message, System.currentTimeMillis(), format);
 	}
 
 	synchronized public void log(Log message) {
+		for (LogHandler handler : GLOBAL_HANDLERS)
+			message = handler.preLog(message);
 		for (LogHandler handler : handlers)
 			message = handler.preLog(message);
 
@@ -57,6 +68,8 @@ public class Logger {
 		else printStream = System.out;
 		printStream.println(message.colored());
 
+		for (LogHandler handler : GLOBAL_HANDLERS)
+			handler.postLog(message);
 		for (LogHandler handler : handlers)
 			handler.postLog(message);
 	}
@@ -117,7 +130,8 @@ public class Logger {
 		return handlers;
 	}
 
-	public void handler(LogHandler handler) {
+	public Logger handler(LogHandler handler) {
 		handlers.add(handler);
+		return this;
 	}
 }
