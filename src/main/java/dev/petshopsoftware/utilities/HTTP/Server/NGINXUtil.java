@@ -50,7 +50,7 @@ public class NGINXUtil {
 
 	private static String setupSSLCertificate(String subdomain, String domain, String email) throws Exception {
 		if (!isCertBotInstalled())
-			throw new UnsupportedOperationException("CertBot could not be found in the system.");
+			throw new Exception("CertBot could not be found in the system.");
 		String fullDomain = subdomain + "." + domain;
 		String certificatePath = CERTIFICATES_PATH + "/" + fullDomain;
 		try {
