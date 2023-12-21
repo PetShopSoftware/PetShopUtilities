@@ -1,5 +1,7 @@
 package dev.petshopsoftware.utilities.Socket;
 
+import dev.petshopsoftware.utilities.Logging.Log;
+import dev.petshopsoftware.utilities.Logging.Logger;
 import dev.petshopsoftware.utilities.Util.ParsingMode;
 import dev.petshopsoftware.utilities.Util.ReflectionUtil;
 import org.java_websocket.WebSocket;
@@ -18,6 +20,7 @@ public abstract class SocketServer extends WebSocketServer {
 	public static final List<SocketServer> ACTIVE_SERVERS = new ArrayList<>();
 
 	public final String name;
+	public final Logger logger;
 
 	public final Map<String, SocketClient> clientsByUserID = new ConcurrentHashMap<>();
 	public final Map<WebSocket, SocketClient> clientsBySocket = new ConcurrentHashMap<>();
@@ -26,6 +29,7 @@ public abstract class SocketServer extends WebSocketServer {
 		super(new InetSocketAddress(port));
 		this.name = name;
 		this.setReuseAddr(true);
+		this.logger = new Logger("socket-" + name);
 	}
 
 	public static void stopAll() {
@@ -65,9 +69,9 @@ public abstract class SocketServer extends WebSocketServer {
 	@Override
 	public void onError(WebSocket webSocket, Exception e) {
 		if (webSocket == null)
-			throw new RuntimeException("Socket '" + name + "' exception.", e);
+			logger.error(Log.fromException(new RuntimeException("Socket " + name + " exception.", e)));
 		else
-			throw new RuntimeException("Socket '" + clientsBySocket.get(webSocket).getID() + "' exception.", e);
+			logger.error(Log.fromException(new RuntimeException("Client " + clientsBySocket.get(webSocket).getID() + " exception.", e)));
 	}
 
 	protected void handleConnection(WebSocket webSocket, ClientHandshake clientHandshake) {
@@ -94,7 +98,8 @@ public abstract class SocketServer extends WebSocketServer {
 			channel = message[0];
 			content = message.length > 1 ? message[1] : null;
 		} catch (Exception e) {
-			throw new RuntimeException("Failed to parse message from " + clientsBySocket.get(webSocket).getID() + ".", e);
+			logger.warn(Log.fromException(new RuntimeException("Failed to parse message from " + clientsBySocket.get(webSocket).getID() + ".", e)));
+			return;
 		}
 
 		Method selectedMethod = ReflectionUtil.getMethodsAnnotatedWith(getClass(), SocketChannel.class)
@@ -120,6 +125,7 @@ public abstract class SocketServer extends WebSocketServer {
 			socketResponse = (SocketResponse) selectedMethod.invoke(this, webSocket, selectedChannel.parsingMode().parse.apply(content));
 		} catch (Exception e) {
 			send(webSocket, SocketResponse.INTERNAL_ERROR.channel("ERROR"));
+			logger.error(Log.fromException(new RuntimeException("An internal error occurred.", e)));
 			return;
 		}
 
