@@ -8,6 +8,7 @@ import com.sun.net.httpserver.HttpExchange;
 import dev.petshopsoftware.utilities.JSON.JSON;
 import dev.petshopsoftware.utilities.Util.ParsingMode;
 
+import java.io.IOException;
 import java.net.URI;
 import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
@@ -25,10 +26,11 @@ public class HTTPData {
 	private byte[] rawBody;
 	private String body;
 	private JsonNode jsonBody;
-	private Map<String, String> queryParams;
 	private Map<String, List<String>> headers;
+	private Map<String, String> queryParams;
+	private String ip;
 
-	public HTTPData(Route route, HttpExchange exchange, HTTPServer server, Map<String, String> pathParams, byte[] rawBody) {
+	public HTTPData(Route route, HttpExchange exchange, HTTPServer server, Map<String, String> pathParams, byte[] rawBody) throws IOException {
 		this.route = route;
 		this.exchange = exchange;
 		this.server = server;
@@ -36,16 +38,17 @@ public class HTTPData {
 		this.parseBody(rawBody);
 		this.parseHeaders(exchange);
 		this.parseQuery(exchange);
+		this.parseIP(exchange);
 	}
 
-	private void parseBody(byte[] rawBody) {
+	private void parseBody(byte[] rawBody) throws JsonProcessingException {
 		this.rawBody = rawBody;
 		this.body = new String(rawBody);
 		try {
 			this.jsonBody = JSON.MAPPER.readTree(this.body);
 		} catch (JsonProcessingException e) {
 			if (this.route.parsingMode() == ParsingMode.JSON)
-				throw new UnsupportedOperationException("Invalid JSON body.", e);
+				throw e;
 			else this.jsonBody = null;
 		}
 	}
@@ -76,6 +79,11 @@ public class HTTPData {
 			}
 		}
 		this.queryParams = query;
+	}
+
+	private void parseIP(HttpExchange exchange) {
+		String ipAddress = exchange.getRequestHeaders().getFirst("X-Forwarded-For");
+		this.ip = ipAddress == null ? exchange.getRemoteAddress().getAddress().getHostAddress() : ipAddress;
 	}
 
 	public byte[] rawBody() {
