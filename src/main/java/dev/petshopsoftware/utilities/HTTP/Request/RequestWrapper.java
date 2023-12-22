@@ -1,12 +1,17 @@
 package dev.petshopsoftware.utilities.HTTP.Request;
 
 public abstract class RequestWrapper<T extends ResponseWrapper<?>> {
-	protected abstract Request makeRequest();
+	public abstract Request makeRequest();
 
-	public T execute() throws RequestException {
-		Response httpResponse = makeRequest().execute();
+	public T execute() {
+		Response httpResponse;
+		try {
+			httpResponse = makeRequest().execute();
+		} catch (RequestException e) {
+			httpResponse = e.getResponse();
+		}
 		return createResponse(httpResponse);
 	}
 
-	protected abstract T createResponse(Response response);
+	public abstract T createResponse(Response response);
 }
