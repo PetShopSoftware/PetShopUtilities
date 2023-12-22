@@ -48,7 +48,7 @@ public interface MongoDocument extends JSON {
 	}
 
 	default void save() throws DocumentWriteException {
-		save(MongoConnection.DEFAULT_CONNECTION);
+		save(MongoConnection.INSTANCE);
 	}
 
 	default JSON load(MongoConnection mongoConnection, String idField, String id) throws DocumentReadException {
@@ -61,7 +61,7 @@ public interface MongoDocument extends JSON {
 	}
 
 	default JSON load(String idField, String id) throws DocumentReadException {
-		return load(MongoConnection.DEFAULT_CONNECTION, idField, id);
+		return load(MongoConnection.INSTANCE, idField, id);
 	}
 
 
@@ -70,7 +70,7 @@ public interface MongoDocument extends JSON {
 	}
 
 	default JSON load(String id) throws DocumentReadException {
-		return load(MongoConnection.DEFAULT_CONNECTION, id);
+		return load(MongoConnection.INSTANCE, id);
 	}
 
 	default void delete(MongoConnection mongoConnection) throws DocumentWriteException {
@@ -86,6 +86,6 @@ public interface MongoDocument extends JSON {
 	}
 
 	default void delete() throws DocumentWriteException {
-		delete(MongoConnection.DEFAULT_CONNECTION);
+		delete(MongoConnection.INSTANCE);
 	}
 }

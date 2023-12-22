@@ -15,7 +15,7 @@ import org.bson.codecs.pojo.PojoCodecProvider;
 import java.util.logging.Level;
 
 public class MongoConnection {
-	public static MongoConnection DEFAULT_CONNECTION = null;
+	protected static MongoConnection INSTANCE = null;
 
 	static {
 		java.util.logging.Logger.getLogger("org.mongodb.driver").setLevel(Level.OFF);
@@ -37,7 +37,13 @@ public class MongoConnection {
 			Logger.get("mongo-" + databaseName).fatal(Log.fromException(new RuntimeException("Mongo connection failed.", e)));
 			return;
 		}
-		if (DEFAULT_CONNECTION == null) DEFAULT_CONNECTION = this;
+		if (INSTANCE == null) INSTANCE = this;
+	}
+
+	public static MongoConnection getInstance() {
+		if (INSTANCE == null)
+			throw new NullPointerException("Instance is null. Please initialize a new MongoConnection.");
+		return INSTANCE;
 	}
 
 	public MongoClient getClient() {
