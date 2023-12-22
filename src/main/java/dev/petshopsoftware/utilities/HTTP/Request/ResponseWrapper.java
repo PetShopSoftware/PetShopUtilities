@@ -10,4 +10,12 @@ public abstract class ResponseWrapper<T extends RequestWrapper<?>> implements JS
 	public ResponseWrapper(Response response) {
 		this.response = response;
 	}
+
+	public Response getResponse() {
+		return response;
+	}
+
+	public boolean isCode(int code) {
+		return response.statusCode() == code;
+	}
 }
