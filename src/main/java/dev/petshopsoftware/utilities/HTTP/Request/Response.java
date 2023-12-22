@@ -7,6 +7,8 @@ import dev.petshopsoftware.utilities.JSON.JSON;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.lang.reflect.Constructor;
+import java.lang.reflect.InvocationTargetException;
 
 public class Response {
     private final Request request;
@@ -93,5 +95,22 @@ public class Response {
             message.append("  ").append(body());
         }
         return message.toString();
+    }
+
+
+    //Necessary to be able to use the casting constructor, check LoginResponse for example
+    public Request getRequest() {
+        return request;
+    }
+
+    public static <T extends Response> T fromRequest(Response response, Class<T> responseClass){
+        try {
+            Constructor<T> constructor = responseClass.getConstructor(response.getClass());
+            return constructor.newInstance(response);
+        } catch (NoSuchMethodException | InvocationTargetException | InstantiationException | IllegalAccessException e) {
+            throw new RuntimeException(e);
+            //Add logging to default logger, something like: Response class not found?
+        }
+
     }
 }
