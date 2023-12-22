@@ -15,6 +15,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 public class HTTPData {
 	private final Route route;
@@ -120,5 +121,16 @@ public class HTTPData {
 
 	public Route route() {
 		return route;
+	}
+
+	public String getIP() {
+		return ip;
+	}
+
+	@Override
+	public String toString() {
+		return route.method() + " " + route.path() + " from " + ip + "\n" +
+				headers.entrySet().stream().map(entry -> entry.getKey() + ": " + String.join(", ", entry.getValue())).collect(Collectors.joining("\n")) + "\n" +
+				(jsonBody != null ? jsonBody.toPrettyString() : body);
 	}
 }

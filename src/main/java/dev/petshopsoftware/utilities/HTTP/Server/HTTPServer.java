@@ -72,13 +72,12 @@ public class HTTPServer {
 	protected void handleRequest(HttpExchange exchange) {
 		HTTPMethod method = HTTPMethod.valueOf(exchange.getRequestMethod());
 		String path = exchange.getRequestURI().toString();
-
 		HTTPResponse response;
 		Trio<Route, Method, Map<String, String>> routeData = null;
 		try {
 			routeData = resolveRoute(method, path);
 			HTTPData data = new HTTPData(routeData.getV1(), exchange, this, routeData.getV3(), readBody(exchange));
-			// TODO log request
+			logger.debug(data.toString());
 			response = (HTTPResponse) routeData.getV2().invoke(null, data);
 		} catch (NameNotFoundException e) {
 			response = getNotFound();
