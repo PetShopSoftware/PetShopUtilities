@@ -15,16 +15,16 @@ import java.util.Iterator;
 import java.util.Map;
 
 public class Request {
-	private final HttpsURLConnection connection;
+	private final HttpURLConnection connection;
 
 	public Request(String url, String proxy) {
 		try {
 			URL connectionURL = new URI(url).toURL();
 			if (proxy == null)
-				connection = (HttpsURLConnection) connectionURL.openConnection();
+				connection = (HttpURLConnection) connectionURL.openConnection();
 			else {
 				String[] proxyParts = proxy.split(":");
-				connection = (HttpsURLConnection) connectionURL.openConnection(
+				connection = (HttpURLConnection) connectionURL.openConnection(
 						new Proxy(
 								Proxy.Type.HTTP,
 								new InetSocketAddress(proxyParts[0], Integer.parseInt(proxyParts[1]))
@@ -50,6 +50,9 @@ public class Request {
 	}
 
 	public Request trustAllCerts() {
+		if (!(connection instanceof HttpsURLConnection))
+			return this;
+
 		TrustManager[] trustAllCerts = new TrustManager[]{
 				new X509TrustManager() {
 					public java.security.cert.X509Certificate[] getAcceptedIssuers() {
@@ -67,13 +70,13 @@ public class Request {
 		try {
 			SSLContext sslContext = SSLContext.getInstance("SSL");
 			sslContext.init(null, trustAllCerts, new java.security.SecureRandom());
-			connection.setSSLSocketFactory(sslContext.getSocketFactory());
+			((HttpsURLConnection) connection).setSSLSocketFactory(sslContext.getSocketFactory());
 			HostnameVerifier allHostsValid = new HostnameVerifier() {
 				public boolean verify(String hostname, SSLSession session) {
 					return true;
 				}
 			};
-			connection.setHostnameVerifier(allHostsValid);
+			((HttpsURLConnection) connection).setHostnameVerifier(allHostsValid);
 
 		} catch (KeyManagementException | NoSuchAlgorithmException e) {
 			throw new RuntimeException(e);
@@ -139,7 +142,7 @@ public class Request {
 		return this;
 	}
 
-	public HttpsURLConnection getConnection() {
+	public HttpURLConnection getConnection() {
 		return connection;
 	}
 
