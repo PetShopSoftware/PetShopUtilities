@@ -32,6 +32,7 @@ public class MongoConnection {
 			CodecRegistry fromProvider = CodecRegistries.fromProviders(PojoCodecProvider.builder().automatic(true).build());
 			CodecRegistry pojoCodecRegistry = CodecRegistries.fromRegistries(defaultCodecRegistry, fromProvider);
 			database = client.getDatabase(databaseName).withCodecRegistry(pojoCodecRegistry);
+			Logger.get("mongo-" + databaseName).info("Mongo connection established.");
 		} catch (Exception e) {
 			Logger.get("mongo-" + databaseName).fatal(Log.fromException(new RuntimeException("Mongo connection failed.", e)));
 			return;
