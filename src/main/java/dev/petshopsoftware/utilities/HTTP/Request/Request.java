@@ -105,6 +105,14 @@ public class Request {
 		return header("Content-Type", contentType);
 	}
 
+	public Request authentication(String credential) {
+		return header("Authentication", credential);
+	}
+
+	public Request authentication(String method, String credential) {
+		return header("Authentication", method + " " + credential);
+	}
+
 	public Request body(byte[] body) {
 		connection.setDoOutput(true);
 		try (OutputStream os = connection.getOutputStream()) {
