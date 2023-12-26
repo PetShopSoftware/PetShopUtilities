@@ -19,6 +19,7 @@ import java.lang.reflect.Modifier;
 import java.net.InetSocketAddress;
 import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 
@@ -30,6 +31,7 @@ public class HTTPServer {
 	private final int port;
 	private final HttpServer server;
 	private final Map<String, Pair<Route, Method>> routes = new HashMap<>();
+	private final List<HTTPHandler> handlers = new LinkedList<>();
 
 	public HTTPServer(String subdomain, String domain, int port) {
 		try {
@@ -72,13 +74,21 @@ public class HTTPServer {
 	protected void handleRequest(HttpExchange exchange) {
 		HTTPMethod method = HTTPMethod.valueOf(exchange.getRequestMethod());
 		String path = exchange.getRequestURI().toString();
-		HTTPResponse response;
 		Trio<Route, Method, Map<String, String>> routeData = null;
+		HTTPResponse response = null;
 		try {
 			routeData = resolveRoute(method, path);
 			HTTPData data = new HTTPData(routeData.getV1(), exchange, this, routeData.getV3(), readBody(exchange));
 			logger.debug(data.toString());
-			response = (HTTPResponse) routeData.getV2().invoke(null, data);
+			for (HTTPHandler handler : handlers) {
+				HTTPResponse handlerResponse = handler.handle(routeData.getV1(), data);
+				if (handlerResponse != null) {
+					response = handlerResponse;
+					break;
+				}
+			}
+			if (response == null)
+				response = (HTTPResponse) routeData.getV2().invoke(null, data);
 		} catch (NameNotFoundException e) {
 			response = getNotFound();
 		} catch (JsonProcessingException e) {
@@ -87,7 +97,6 @@ public class HTTPServer {
 			response = getInternalError(routeData == null ? null : routeData.getV1());
 			logger.error(Log.fromException(new RuntimeException("An internal error occurred.", e)));
 		}
-
 		try {
 			send(exchange, response);
 		} catch (IOException e) {
@@ -142,12 +151,12 @@ public class HTTPServer {
 		os.close();
 	}
 
-	public HTTPServer handlers(Class<?>... handlers) {
-		for (Class<?> handler : handlers) {
+	public HTTPServer routers(Class<?>... routers) {
+		for (Class<?> router : routers) {
 			String routerPath = "";
-			if (handler.isAnnotationPresent(Router.class))
-				routerPath = handler.getAnnotation(Router.class).value();
-			List<Method> routes = ReflectionUtil.getMethodsAnnotatedWith(handler, Route.class);
+			if (router.isAnnotationPresent(Router.class))
+				routerPath = router.getAnnotation(Router.class).value();
+			List<Method> routes = ReflectionUtil.getMethodsAnnotatedWith(router, Route.class);
 			for (Method route : routes) {
 				Route info = route.getAnnotation(Route.class);
 				String path = routerPath + info.path();
@@ -176,6 +185,11 @@ public class HTTPServer {
 				logger.info("Route " + id + " registered successfully.");
 			}
 		}
+		return this;
+	}
+
+	public HTTPServer handlers(HTTPHandler... handlers) {
+		this.handlers.addAll(List.of(handlers));
 		return this;
 	}
 
