@@ -25,19 +25,39 @@ public class JWTPayload implements JSON {
 		return sub;
 	}
 
+	public void setSub(String sub) {
+		this.sub = sub;
+	}
+
 	public String getIss() {
 		return iss;
+	}
+
+	public void setIss(String iss) {
+		this.iss = iss;
 	}
 
 	public long getExp() {
 		return exp;
 	}
 
+	public void setExp(long exp) {
+		this.exp = exp;
+	}
+
 	public long getIat() {
 		return iat;
 	}
 
+	public void setIat(long iat) {
+		this.iat = iat;
+	}
+
 	public String getJti() {
 		return jti;
+	}
+
+	public void setJti(String jti) {
+		this.jti = jti;
 	}
 }
