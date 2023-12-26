@@ -5,5 +5,5 @@ import java.lang.reflect.Method;
 public interface HTTPHandler {
 	boolean matchesRoute(Route route, Method method);
 
-	HTTPResponse handle(Route route, HTTPData data);
+	HTTPResponse handle(Route route, Method method, HTTPData data);
 }

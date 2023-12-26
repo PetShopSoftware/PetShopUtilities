@@ -82,7 +82,7 @@ public class HTTPServer {
 			logger.debug(data.toString());
 			for (HTTPHandler handler : handlers) {
 				if (!handler.matchesRoute(routeData.getV1(), routeData.getV2())) continue;
-				HTTPResponse handlerResponse = handler.handle(routeData.getV1(), data);
+				HTTPResponse handlerResponse = handler.handle(routeData.getV1(), routeData.getV2(), data);
 				if (handlerResponse != null) {
 					response = handlerResponse;
 					break;
