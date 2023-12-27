@@ -59,7 +59,7 @@ public class MongoConnection {
 	}
 
 	public MongoCollection<Document> getCollection(Class<?> clazz) {
-		while (clazz != null && clazz.isAnnotationPresent(MongoInfo.class))
+		while (clazz != null && !clazz.isAnnotationPresent(MongoInfo.class))
 			clazz = clazz.getSuperclass();
 		if (clazz == null)
 			throw new IllegalArgumentException("Provided class and its superclasses are missing MongoInfo annotation.");
