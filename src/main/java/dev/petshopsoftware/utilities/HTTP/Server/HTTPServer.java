@@ -18,6 +18,7 @@ import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.net.InetSocketAddress;
 import java.nio.charset.StandardCharsets;
+import java.security.InvalidParameterException;
 import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
@@ -92,8 +93,8 @@ public class HTTPServer {
 				response = (HTTPResponse) routeData.getV2().invoke(null, data);
 		} catch (NameNotFoundException e) {
 			response = getNotFound();
-		} catch (JsonProcessingException e) {
-			response = getBadRequest(routeData.getV1());
+		} catch (JsonProcessingException | InvalidParameterException e) {
+			response = getBadRequest(routeData == null ? null : routeData.getV1());
 		} catch (Exception e) {
 			response = getInternalError(routeData == null ? null : routeData.getV1());
 			logger.error(Log.fromException(new RuntimeException("An internal error occurred.", e)));
