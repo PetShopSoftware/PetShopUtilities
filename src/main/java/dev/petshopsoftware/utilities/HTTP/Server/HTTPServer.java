@@ -93,11 +93,15 @@ public class HTTPServer {
 				response = (HTTPResponse) routeData.getV2().invoke(null, data);
 		} catch (NameNotFoundException e) {
 			response = getNotFound();
-		} catch (JsonProcessingException | InvalidParameterException e) {
-			response = getBadRequest(routeData == null ? null : routeData.getV1());
+		} catch (JsonProcessingException e) {
+			response = getBadRequest(routeData.getV1());
 		} catch (Exception e) {
-			response = getInternalError(routeData == null ? null : routeData.getV1());
-			logger.error(Log.fromException(new RuntimeException("An internal error occurred.", e)));
+			if (e.getCause() instanceof InvalidParameterException)
+				response = getBadRequest(routeData == null ? null : routeData.getV1()).message(e.getCause().getMessage());
+			else {
+				response = getInternalError(routeData == null ? null : routeData.getV1());
+				logger.error(Log.fromException(new RuntimeException("An internal error occurred.", e)));
+			}
 		}
 		try {
 			send(exchange, response);
