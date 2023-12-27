@@ -48,7 +48,7 @@ public interface MongoDocument extends JSON {
 				throw new DocumentWriteException(e);
 			}
 			if (insertResult.getInsertedId() == null)
-				throw new DocumentWriteException("Failed saving Object to database.");
+				throw new DocumentWriteException("Failed saving " + getClass().getSimpleName() + " to database.");
 		}
 	}
 
@@ -61,7 +61,7 @@ public interface MongoDocument extends JSON {
 		Document result = collection.find(filter).first();
 		if (result != null)
 			return fromDocument(result);
-		throw new DocumentReadException("Failed loading Object from database.");
+		throw new DocumentReadException("Failed loading " + getClass().getSimpleName() + " from database.");
 	}
 
 	default MongoDocument load(Document filter) throws DocumentReadException {
@@ -91,7 +91,7 @@ public interface MongoDocument extends JSON {
 		MongoCollection<Document> collection = mongoConnection.getCollection(getClass());
 		DeleteResult deleteResult = collection.deleteOne(new Document(identifierField, id));
 		if (deleteResult.getDeletedCount() == 0)
-			throw new DocumentWriteException("Failed deleting Object from database.");
+			throw new DocumentWriteException("Failed deleting " + getClass().getSimpleName() + " from database.");
 	}
 
 	default void delete() throws DocumentWriteException {
