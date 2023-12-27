@@ -1,13 +1,20 @@
 package dev.petshopsoftware.utilities.Database.Mongo;
 
+import com.mongodb.client.FindIterable;
 import com.mongodb.client.MongoCollection;
 import com.mongodb.client.result.DeleteResult;
 import com.mongodb.client.result.InsertOneResult;
 import dev.petshopsoftware.utilities.Database.DocumentReadException;
 import dev.petshopsoftware.utilities.Database.DocumentWriteException;
 import dev.petshopsoftware.utilities.JSON.JSON;
+import dev.petshopsoftware.utilities.Logging.Log;
+import dev.petshopsoftware.utilities.Logging.Logger;
 import org.bson.Document;
 
+import java.lang.reflect.Constructor;
+import java.lang.reflect.InvocationTargetException;
+import java.util.LinkedList;
+import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 public interface MongoDocument extends JSON {
@@ -15,8 +22,8 @@ public interface MongoDocument extends JSON {
 		return Document.parse(toJSON().toString());
 	}
 
-	default JSON fromDocument(Document document) {
-		return fromString(document.toJson());
+	default MongoDocument fromDocument(Document document) {
+		return (MongoDocument) fromString(document.toJson());
 	}
 
 	default MongoInfo getMongoInfo() {
@@ -30,9 +37,7 @@ public interface MongoDocument extends JSON {
 		String identifierField = getMongoInfo().identifier();
 		Document document = toDocument();
 		String id = document.get(identifierField).toString();
-
 		AtomicBoolean saveError = new AtomicBoolean(false);
-
 		MongoCollection<Document> collection = mongoConnection.getCollection(getClass());
 		Document replaceResult = collection.findOneAndReplace(new Document(identifierField, id), document);
 		if (replaceResult == null) {
@@ -51,34 +56,38 @@ public interface MongoDocument extends JSON {
 		save(MongoConnection.INSTANCE);
 	}
 
-	default JSON load(MongoConnection mongoConnection, String idField, String id) throws DocumentReadException {
+	default MongoDocument load(MongoConnection mongoConnection, Document filter) throws DocumentReadException {
 		MongoCollection<Document> collection = mongoConnection.getCollection(getClass());
-		Document result = collection.find(new Document().append(idField, id)).first();
+		Document result = collection.find(filter).first();
 		if (result != null)
 			return fromDocument(result);
-
 		throw new DocumentReadException("Failed loading Object from database.");
 	}
 
-	default JSON load(String idField, String id) throws DocumentReadException {
-		return load(MongoConnection.INSTANCE, idField, id);
+	default MongoDocument load(Document filter) throws DocumentReadException {
+		return load(MongoConnection.getInstance(), filter);
 	}
 
+	default MongoDocument load(MongoConnection mongoConnection, String idField, String id) throws DocumentReadException {
+		return load(mongoConnection, new Document(idField, id));
+	}
 
-	default JSON load(MongoConnection mongoConnection, String id) throws DocumentReadException {
+	default MongoDocument load(String idField, String id) throws DocumentReadException {
+		return load(MongoConnection.getInstance(), idField, id);
+	}
+
+	default MongoDocument load(MongoConnection mongoConnection, String id) throws DocumentReadException {
 		return load(mongoConnection, getMongoInfo().identifier(), id);
 	}
 
-	default JSON load(String id) throws DocumentReadException {
-		return load(MongoConnection.INSTANCE, id);
+	default MongoDocument load(String id) throws DocumentReadException {
+		return load(MongoConnection.getInstance(), id);
 	}
 
 	default void delete(MongoConnection mongoConnection) throws DocumentWriteException {
 		String identifierField = getMongoInfo().identifier();
 		Document document = toDocument();
 		String id = document.get(identifierField).toString();
-
-		AtomicBoolean deleteError = new AtomicBoolean(false);
 		MongoCollection<Document> collection = mongoConnection.getCollection(getClass());
 		DeleteResult deleteResult = collection.deleteOne(new Document(identifierField, id));
 		if (deleteResult.getDeletedCount() == 0)
@@ -87,5 +96,28 @@ public interface MongoDocument extends JSON {
 
 	default void delete() throws DocumentWriteException {
 		delete(MongoConnection.INSTANCE);
+	}
+
+	default List<MongoDocument> query(MongoConnection mongoConnection, Document filter, Document sort, int limit, int skip) throws NoSuchMethodException {
+		List<MongoDocument> objects = new LinkedList<>();
+		MongoCollection<Document> collection = mongoConnection.getCollection(getClass());
+		FindIterable<Document> result = collection.find(filter);
+		if (sort != null) result.sort(sort);
+		if (limit != -1) result.skip(limit);
+		if (skip != -1) result.skip(skip);
+		Constructor<? extends MongoDocument> constructor = getClass().getConstructor();
+		for (Document document : result) {
+			try {
+				MongoDocument object = constructor.newInstance().fromDocument(document);
+				objects.add(object);
+			} catch (InstantiationException | IllegalAccessException | InvocationTargetException e) {
+				Logger.get("main").error(Log.fromException(new RuntimeException("Failed to initialize MongoDocument object.", e)));
+			}
+		}
+		return objects;
+	}
+
+	default List<MongoDocument> query(Document filter, Document sort, int limit, int skip) throws NoSuchMethodException {
+		return query(MongoConnection.getInstance(), filter, sort, limit, skip);
 	}
 }
