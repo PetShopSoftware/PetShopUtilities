@@ -20,6 +20,7 @@ public class JSONResponse implements JSON {
 	public static final JSONResponse UNAUTHORIZED = new JSONResponse(HttpURLConnection.HTTP_UNAUTHORIZED, "Account not authorized.", null);
 	public static final JSONResponse FORBIDDEN = new JSONResponse(HttpURLConnection.HTTP_UNAUTHORIZED, "Access forbidden.", null);
 	public static final JSONResponse NOT_FOUND = new JSONResponse(HttpURLConnection.HTTP_NOT_FOUND, "Resource not found.", null);
+	public static final JSONResponse CONFLICT = new JSONResponse(HttpURLConnection.HTTP_CONFLICT, null, null);
 	public static final JSONResponse TIMEOUT = new JSONResponse(420, "Wait a few seconds.", null);
 
 	// 5XX code range

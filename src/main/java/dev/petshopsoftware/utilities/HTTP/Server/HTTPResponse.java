@@ -18,6 +18,7 @@ public class HTTPResponse extends JSONResponse {
 	public static final HTTPResponse UNAUTHORIZED = new HTTPResponse(JSONResponse.UNAUTHORIZED);
 	public static final HTTPResponse FORBIDDEN = new HTTPResponse(JSONResponse.FORBIDDEN);
 	public static final HTTPResponse NOT_FOUND = new HTTPResponse(JSONResponse.NOT_FOUND);
+	public static final HTTPResponse CONFLICT = new HTTPResponse(JSONResponse.CONFLICT);
 	public static final HTTPResponse TIMEOUT = new HTTPResponse(JSONResponse.TIMEOUT);
 
 	// 5XX code range

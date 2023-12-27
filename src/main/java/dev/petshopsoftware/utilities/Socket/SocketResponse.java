@@ -18,6 +18,7 @@ public class SocketResponse extends JSONResponse {
 	public static final SocketResponse UNAUTHORIZED = new SocketResponse(JSONResponse.UNAUTHORIZED);
 	public static final SocketResponse FORBIDDEN = new SocketResponse(JSONResponse.FORBIDDEN);
 	public static final SocketResponse NOT_FOUND = new SocketResponse(JSONResponse.NOT_FOUND);
+	public static final SocketResponse CONFLICT = new SocketResponse(JSONResponse.CONFLICT);
 	public static final SocketResponse TIMEOUT = new SocketResponse(JSONResponse.TIMEOUT);
 
 	// 5XX code range
