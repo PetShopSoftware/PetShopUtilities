@@ -3,6 +3,7 @@ package dev.petshopsoftware.utilities.JSON;
 import com.fasterxml.jackson.annotation.JsonAutoDetect;
 import com.fasterxml.jackson.annotation.PropertyAccessor;
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -17,6 +18,11 @@ public interface JSON {
 			.setVisibility(PropertyAccessor.IS_GETTER, JsonAutoDetect.Visibility.NONE)
 			.setVisibility(PropertyAccessor.CREATOR, JsonAutoDetect.Visibility.NONE)
 			.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
+
+	static <T> T convert(JsonNode node) {
+		return MAPPER.convertValue(node, new TypeReference<>() {
+		});
+	}
 
 	default JsonNode toJSON() {
 		try {
