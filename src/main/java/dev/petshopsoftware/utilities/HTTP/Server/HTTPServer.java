@@ -5,6 +5,7 @@ import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpServer;
 import dev.petshopsoftware.utilities.Logging.Log;
 import dev.petshopsoftware.utilities.Logging.Logger;
+import dev.petshopsoftware.utilities.Util.InputChecker.InvalidInputException;
 import dev.petshopsoftware.utilities.Util.ParsingMode;
 import dev.petshopsoftware.utilities.Util.RandomUtil;
 import dev.petshopsoftware.utilities.Util.ReflectionUtil;
@@ -18,7 +19,6 @@ import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.net.InetSocketAddress;
 import java.nio.charset.StandardCharsets;
-import java.security.InvalidParameterException;
 import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
@@ -96,7 +96,7 @@ public class HTTPServer {
 		} catch (JsonProcessingException e) {
 			response = getBadRequest(routeData.getV1());
 		} catch (Exception e) {
-			if (e.getCause() instanceof InvalidParameterException)
+			if (e.getCause() instanceof InvalidInputException)
 				response = getBadRequest(routeData == null ? null : routeData.getV1()).message(e.getCause().getMessage());
 			else {
 				response = getInternalError(routeData == null ? null : routeData.getV1());

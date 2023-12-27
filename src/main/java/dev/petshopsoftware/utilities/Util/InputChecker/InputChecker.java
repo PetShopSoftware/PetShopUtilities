@@ -1,6 +1,5 @@
 package dev.petshopsoftware.utilities.Util.InputChecker;
 
-import java.security.InvalidParameterException;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.function.Function;
@@ -22,11 +21,11 @@ public class InputChecker<T> {
 		return check(check, "Failed check #%i%.");
 	}
 
-	public T matches() throws InvalidParameterException {
+	public T matches() throws InvalidInputException {
 		int i = 1;
 		for (Map.Entry<Function<T, Boolean>, String> check : checks.entrySet()) {
 			if (!check.getKey().apply(input))
-				throw new InvalidParameterException(
+				throw new InvalidInputException(
 						check.getValue()
 								.replace("%i%", String.valueOf(i))
 				);
