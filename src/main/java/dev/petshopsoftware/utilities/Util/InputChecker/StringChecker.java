@@ -5,6 +5,10 @@ public class StringChecker extends InputChecker<String> {
 		super(input);
 	}
 
+	public StringChecker required() {
+		return (StringChecker) check(input -> input != null && !input.isEmpty());
+	}
+
 	public StringChecker min(int length) {
 		return (StringChecker) check(input -> input.length() >= length);
 	}
