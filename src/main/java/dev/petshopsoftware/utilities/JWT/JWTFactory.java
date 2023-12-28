@@ -75,7 +75,7 @@ public class JWTFactory {
 	public boolean validate(String jwt, boolean allowExpired) {
 		if (!validateJWTSignature(jwt)) return false;
 		JWTPayload payload = extractJWTPayload(jwt);
-		if (!allowExpired && payload.getExp() > System.currentTimeMillis()) return false;
+		if (!allowExpired && System.currentTimeMillis() > payload.getExp()) return false;
 		return payload.getIss().equals(issuer);
 	}
 
