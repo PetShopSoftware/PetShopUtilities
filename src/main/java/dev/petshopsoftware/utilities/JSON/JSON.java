@@ -41,7 +41,7 @@ public interface JSON {
 		return toJSONString(true);
 	}
 
-	default JSON fromJSON(JsonNode json) {
+	default <T extends JSON> T fromJSON(JsonNode json) {
 		try {
 			return MAPPER
 					.readerForUpdating(this)
@@ -51,7 +51,7 @@ public interface JSON {
 		}
 	}
 
-	default JSON fromString(String string) {
+	default <T extends JSON> T fromString(String string) {
 		try {
 			return fromJSON(MAPPER.readTree(string));
 		} catch (JsonProcessingException e) {

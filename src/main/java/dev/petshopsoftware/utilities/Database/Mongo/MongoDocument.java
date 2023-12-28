@@ -22,8 +22,8 @@ public interface MongoDocument extends JSON {
 		return Document.parse(toJSON().toString());
 	}
 
-	default MongoDocument fromDocument(Document document) {
-		return (MongoDocument) fromString(document.toJson());
+	default <T extends MongoDocument> T fromDocument(Document document) {
+		return fromString(document.toJson());
 	}
 
 	default MongoInfo getMongoInfo() {
@@ -56,7 +56,7 @@ public interface MongoDocument extends JSON {
 		save(MongoConnection.INSTANCE);
 	}
 
-	default MongoDocument load(MongoConnection mongoConnection, Document filter) throws DocumentReadException {
+	default <T extends MongoDocument> T load(MongoConnection mongoConnection, Document filter) throws DocumentReadException {
 		MongoCollection<Document> collection = mongoConnection.getCollection(getClass());
 		Document result = collection.find(filter).first();
 		if (result != null)
@@ -64,23 +64,23 @@ public interface MongoDocument extends JSON {
 		throw new DocumentReadException("Failed loading " + getClass().getSimpleName() + " from database.");
 	}
 
-	default MongoDocument load(Document filter) throws DocumentReadException {
+	default <T extends MongoDocument> T load(Document filter) throws DocumentReadException {
 		return load(MongoConnection.getInstance(), filter);
 	}
 
-	default MongoDocument load(MongoConnection mongoConnection, String idField, String id) throws DocumentReadException {
+	default <T extends MongoDocument> T load(MongoConnection mongoConnection, String idField, String id) throws DocumentReadException {
 		return load(mongoConnection, new Document(idField, id));
 	}
 
-	default MongoDocument load(String idField, String id) throws DocumentReadException {
+	default <T extends MongoDocument> T load(String idField, String id) throws DocumentReadException {
 		return load(MongoConnection.getInstance(), idField, id);
 	}
 
-	default MongoDocument load(MongoConnection mongoConnection, String id) throws DocumentReadException {
+	default <T extends MongoDocument> T load(MongoConnection mongoConnection, String id) throws DocumentReadException {
 		return load(mongoConnection, getMongoInfo().identifier(), id);
 	}
 
-	default MongoDocument load(String id) throws DocumentReadException {
+	default <T extends MongoDocument> T load(String id) throws DocumentReadException {
 		return load(MongoConnection.getInstance(), id);
 	}
 
@@ -98,17 +98,17 @@ public interface MongoDocument extends JSON {
 		delete(MongoConnection.INSTANCE);
 	}
 
-	default List<MongoDocument> query(MongoConnection mongoConnection, Document filter, Document sort, int limit, int skip) throws NoSuchMethodException {
-		List<MongoDocument> objects = new LinkedList<>();
+	default <T extends MongoDocument> List<T> query(MongoConnection mongoConnection, Document filter, Document sort, int limit, int skip) throws NoSuchMethodException {
+		List<T> objects = new LinkedList<>();
 		MongoCollection<Document> collection = mongoConnection.getCollection(getClass());
 		FindIterable<Document> result = collection.find(filter);
 		if (sort != null) result.sort(sort);
 		if (limit != -1) result.skip(limit);
 		if (skip != -1) result.skip(skip);
-		Constructor<? extends MongoDocument> constructor = getClass().getConstructor();
+		Constructor<T> constructor = (Constructor<T>) getClass().getConstructor();
 		for (Document document : result) {
 			try {
-				MongoDocument object = constructor.newInstance().fromDocument(document);
+				T object = constructor.newInstance().fromDocument(document);
 				objects.add(object);
 			} catch (InstantiationException | IllegalAccessException | InvocationTargetException e) {
 				Logger.get("main").error(Log.fromException(new RuntimeException("Failed to initialize MongoDocument object.", e)));
@@ -117,7 +117,7 @@ public interface MongoDocument extends JSON {
 		return objects;
 	}
 
-	default List<MongoDocument> query(Document filter, Document sort, int limit, int skip) throws NoSuchMethodException {
+	default <T extends MongoDocument> List<T> query(Document filter, Document sort, int limit, int skip) throws NoSuchMethodException {
 		return query(MongoConnection.getInstance(), filter, sort, limit, skip);
 	}
 }
