@@ -157,7 +157,7 @@ public class HTTPServer {
 		os.close();
 	}
 
-	public HTTPServer routers(Class<?>... routers) {
+	public HTTPServer routers(String basePath, Class<?>... routers) {
 		for (Class<?> router : routers) {
 			String routerPath = "";
 			if (router.isAnnotationPresent(Router.class))
@@ -165,7 +165,7 @@ public class HTTPServer {
 			List<Method> routes = ReflectionUtil.getMethodsAnnotatedWith(router, Route.class);
 			for (Method route : routes) {
 				Route info = route.getAnnotation(Route.class);
-				String path = routerPath + info.path();
+				String path = basePath + routerPath + info.path();
 				String id = info.method() + " " + path;
 				if (!Modifier.isStatic(route.getModifiers())) {
 					logger.error("Cannot register route " + id + ": method is not static.");
@@ -192,6 +192,10 @@ public class HTTPServer {
 			}
 		}
 		return this;
+	}
+
+	public HTTPServer routers(Class<?>... routers) {
+		return routers("", routers);
 	}
 
 	public HTTPServer handlers(HTTPHandler... handlers) {
