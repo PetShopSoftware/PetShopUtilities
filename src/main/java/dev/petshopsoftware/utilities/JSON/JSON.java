@@ -19,8 +19,8 @@ public interface JSON {
 			.setVisibility(PropertyAccessor.CREATOR, JsonAutoDetect.Visibility.NONE)
 			.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
 
-	static <T> T convert(JsonNode node) {
-		return MAPPER.convertValue(node, new TypeReference<>() {
+	static <T> T convert(Object object) {
+		return MAPPER.convertValue(object, new TypeReference<>() {
 		});
 	}
 
