@@ -7,7 +7,6 @@ import com.mongodb.client.model.Updates;
 import com.mongodb.client.result.UpdateResult;
 import dev.petshopsoftware.utilities.Database.DocumentReadException;
 import dev.petshopsoftware.utilities.Database.DocumentWriteException;
-import dev.petshopsoftware.utilities.Logging.Logger;
 import org.bson.Document;
 import org.bson.conversions.Bson;
 
@@ -21,10 +20,9 @@ public abstract class MongoDocument implements IMongoDocument {
 	private Document initialDocument = null;
 
 	@Override
-	public <T extends IMongoDocument> T load(MongoConnection mongoConnection, Document filter) throws DocumentReadException {
+	public <T extends IMongoDocument> T load(MongoConnection mongoConnection, Bson filter) throws DocumentReadException {
 		T document = IMongoDocument.super.load(mongoConnection, filter);
 		initialDocument = document.toDocument();
-		Logger.get("main").info("Fetched the following document:\n" + initialDocument.toJson());
 		return document;
 	}
 
