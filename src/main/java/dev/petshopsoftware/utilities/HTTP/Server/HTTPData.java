@@ -18,6 +18,8 @@ import java.util.Map;
 import java.util.stream.Collectors;
 
 public class HTTPData {
+	private final String requestID;
+	private final String fullPath;
 	private final Route route;
 	@JsonIgnore
 	private final HttpExchange exchange;
@@ -31,7 +33,9 @@ public class HTTPData {
 	private Map<String, String> queryParams;
 	private String ip;
 
-	public HTTPData(Route route, HttpExchange exchange, HTTPServer server, Map<String, String> pathParams, byte[] rawBody) throws IOException {
+	public HTTPData(String requestID, String fullPath, Route route, HttpExchange exchange, HTTPServer server, Map<String, String> pathParams, byte[] rawBody) throws IOException {
+		this.requestID = requestID;
+		this.fullPath = fullPath;
 		this.route = route;
 		this.exchange = exchange;
 		this.server = server;
@@ -119,6 +123,14 @@ public class HTTPData {
 		return exchange;
 	}
 
+	public String requestID() {
+		return requestID;
+	}
+
+	public String fullPath() {
+		return fullPath;
+	}
+
 	public Route route() {
 		return route;
 	}
@@ -129,7 +141,7 @@ public class HTTPData {
 
 	@Override
 	public String toString() {
-		return route.method() + " " + route.path() + " from " + ip + "\n" +
+		return route.method() + " " + fullPath + " from " + ip + " (" + requestID + ")\n" +
 				headers.entrySet().stream().map(entry -> entry.getKey() + ": " + String.join(", ", entry.getValue())).collect(Collectors.joining("\n")) + "\n" +
 				(jsonBody != null ? jsonBody.toPrettyString() : body);
 	}

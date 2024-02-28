@@ -10,7 +10,7 @@ import dev.petshopsoftware.utilities.Util.ParsingMode;
 import dev.petshopsoftware.utilities.Util.RandomUtil;
 import dev.petshopsoftware.utilities.Util.ReflectionUtil;
 import dev.petshopsoftware.utilities.Util.Types.Pair;
-import dev.petshopsoftware.utilities.Util.Types.Trio;
+import dev.petshopsoftware.utilities.Util.Types.Quad;
 
 import javax.naming.NameNotFoundException;
 import java.io.IOException;
@@ -19,10 +19,8 @@ import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.net.InetSocketAddress;
 import java.nio.charset.StandardCharsets;
-import java.util.HashMap;
-import java.util.LinkedList;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
+import java.util.stream.Collectors;
 
 public class HTTPServer {
 	private final String id;
@@ -73,44 +71,55 @@ public class HTTPServer {
 	}
 
 	protected void handleRequest(HttpExchange exchange) {
+		String requestID = UUID.randomUUID().toString();
 		HTTPMethod method = HTTPMethod.valueOf(exchange.getRequestMethod());
 		String path = exchange.getRequestURI().toString();
-		Trio<Route, Method, Map<String, String>> routeData = null;
+		Quad<String, Route, Method, Map<String, String>> routeData = null;
 		HTTPResponse response = null;
 		try {
 			routeData = resolveRoute(method, path);
-			HTTPData data = new HTTPData(routeData.getV1(), exchange, this, routeData.getV3(), readBody(exchange));
+			HTTPData data = new HTTPData(requestID, routeData.getV1(), routeData.getV2(), exchange, this, routeData.getV4(), readBody(exchange));
 			logger.debug(data.toString());
 			for (HTTPHandler handler : handlers) {
-				if (!handler.matchesRoute(routeData.getV1(), routeData.getV2())) continue;
-				HTTPResponse handlerResponse = handler.handle(routeData.getV1(), routeData.getV2(), data);
+				if (!handler.matchesRoute(routeData.getV1(), routeData.getV2(), routeData.getV3())) continue;
+				HTTPResponse handlerResponse = handler.handle(data, routeData.getV3());
 				if (handlerResponse != null) {
 					response = handlerResponse;
 					break;
 				}
 			}
 			if (response == null)
-				response = (HTTPResponse) routeData.getV2().invoke(null, data);
+				response = (HTTPResponse) routeData.getV3().invoke(null, data);
 		} catch (NameNotFoundException e) {
 			response = getNotFound();
 		} catch (JsonProcessingException e) {
-			response = getBadRequest(routeData.getV1());
+			response = getBadRequest(routeData.getV2());
 		} catch (Exception e) {
 			if (e.getCause() instanceof InvalidInputException)
-				response = getBadRequest(routeData == null ? null : routeData.getV1()).message(e.getCause().getMessage());
+				response = getBadRequest(routeData == null ? null : routeData.getV2()).message(e.getCause().getMessage());
 			else {
-				response = getInternalError(routeData == null ? null : routeData.getV1());
+				response = getInternalError(routeData == null ? null : routeData.getV2());
 				logger.error(Log.fromException(new RuntimeException("An internal error occurred.", e)));
 			}
 		}
 		try {
-			send(exchange, response);
+			byte[] bytes;
+			if (response.getParsingMode() == ParsingMode.JSON) {
+				exchange.getResponseHeaders().set("Content-Type", "application/json");
+				bytes = response.toString().getBytes(StandardCharsets.UTF_8);
+			} else if (response.getParsingMode() == ParsingMode.RAW)
+				bytes = (byte[]) response.getData();
+			else bytes = ((String) response.getData()).getBytes(StandardCharsets.UTF_8);
+			send(exchange, response.getCode(), bytes);
+			logger.debug(requestID + " Response " + response.getCode() + "\n"
+					+ exchange.getResponseHeaders().entrySet().stream().map(entry -> entry.getKey() + ": " + String.join(", ", entry.getValue())).collect(Collectors.joining("\n")) + "\n"
+					+ (response.getParsingMode() == ParsingMode.RAW ? HexFormat.of().formatHex(bytes) : new String(bytes)));
 		} catch (IOException e) {
-			logger.error(Log.fromException(new RuntimeException("Could not send response to client (is connection closed?).", e)));
+			logger.error(Log.fromException(new RuntimeException("Could not send response to client.", e)));
 		}
 	}
 
-	protected Trio<Route, Method, Map<String, String>> resolveRoute(HTTPMethod method, String path) throws NameNotFoundException {
+	protected Quad<String, Route, Method, Map<String, String>> resolveRoute(HTTPMethod method, String path) throws NameNotFoundException {
 		String[] pathSegments = path.split("/");
 		for (String routeID : routes.keySet()) {
 			String[] routeIDParts = routeID.split(" ");
@@ -134,7 +143,7 @@ public class HTTPServer {
 			Pair<Route, Method> routeData = routes.get(routeID);
 			Route routeInfo = routeData.getV1();
 			Method route = routeData.getV2();
-			return new Trio<>(routeInfo, route, pathParams);
+			return new Quad<>(routeID.split(" ")[1], routeInfo, route, pathParams);
 		}
 		throw new NameNotFoundException("Could not find route " + method + " " + path + ".");
 	}
@@ -143,15 +152,8 @@ public class HTTPServer {
 		return exchange.getRequestBody().readAllBytes();
 	}
 
-	protected void send(HttpExchange exchange, HTTPResponse response) throws IOException {
-		byte[] bytes;
-		if (response.getParsingMode() == ParsingMode.JSON) {
-			exchange.getResponseHeaders().set("Content-Type", "application/json");
-			bytes = response.toString().getBytes(StandardCharsets.UTF_8);
-		} else if (response.getParsingMode() == ParsingMode.RAW)
-			bytes = (byte[]) response.getData();
-		else bytes = ((String) response.getData()).getBytes(StandardCharsets.UTF_8);
-		exchange.sendResponseHeaders(response.getCode(), bytes.length);
+	protected void send(HttpExchange exchange, int code, byte[] bytes) throws IOException {
+		exchange.sendResponseHeaders(code, bytes.length);
 		OutputStream os = exchange.getResponseBody();
 		os.write(bytes);
 		os.close();
