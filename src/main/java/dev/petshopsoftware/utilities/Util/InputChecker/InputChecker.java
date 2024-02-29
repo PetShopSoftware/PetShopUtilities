@@ -5,8 +5,8 @@ import java.util.Map;
 import java.util.function.Function;
 
 public class InputChecker<T> {
-	protected final T input;
 	protected final Map<Function<T, Boolean>, String> checks = new HashMap<>();
+	protected T input;
 
 	public InputChecker(T input) {
 		this.input = input;

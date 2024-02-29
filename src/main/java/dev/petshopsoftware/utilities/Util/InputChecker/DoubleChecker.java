@@ -5,6 +5,15 @@ public class DoubleChecker extends InputChecker<Double> {
 		super(input);
 	}
 
+	public DoubleChecker(String input) {
+		super(0D);
+		try {
+			this.input = Double.parseDouble(input);
+		} catch (NumberFormatException e) {
+			throw new InvalidInputException("Input must be a Double.");
+		}
+	}
+
 	public DoubleChecker min(int length) {
 		return (DoubleChecker) check(input -> input >= length);
 	}

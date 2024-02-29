@@ -5,6 +5,15 @@ public class IntegerChecker extends InputChecker<Integer> {
 		super(input);
 	}
 
+	public IntegerChecker(String input) {
+		super(0);
+		try {
+			this.input = Integer.parseInt(input);
+		} catch (NumberFormatException e) {
+			throw new InvalidInputException("Input must be an Integer.");
+		}
+	}
+
 	public IntegerChecker min(int length) {
 		return (IntegerChecker) check(input -> input >= length);
 	}

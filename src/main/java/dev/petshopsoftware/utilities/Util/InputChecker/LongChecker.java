@@ -5,6 +5,15 @@ public class LongChecker extends InputChecker<Long> {
 		super(input);
 	}
 
+	public LongChecker(String input) {
+		super(0L);
+		try {
+			this.input = Long.parseLong(input);
+		} catch (NumberFormatException e) {
+			throw new InvalidInputException("Input must be a Long.");
+		}
+	}
+
 	public LongChecker min(int length) {
 		return (LongChecker) check(input -> input >= length);
 	}

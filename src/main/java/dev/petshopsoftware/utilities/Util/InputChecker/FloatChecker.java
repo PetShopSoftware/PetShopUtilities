@@ -5,6 +5,15 @@ public class FloatChecker extends InputChecker<Float> {
 		super(input);
 	}
 
+	public FloatChecker(String input) {
+		super(0F);
+		try {
+			this.input = Float.parseFloat(input);
+		} catch (NumberFormatException e) {
+			throw new InvalidInputException("Input must be a Float.");
+		}
+	}
+
 	public FloatChecker min(int length) {
 		return (FloatChecker) check(input -> input >= length);
 	}
