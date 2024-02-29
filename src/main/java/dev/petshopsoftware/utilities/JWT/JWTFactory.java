@@ -24,6 +24,13 @@ public class JWTFactory {
 		this.sha256HMAC.init(secret_key);
 	}
 
+	public static JWTPayload extractJWTPayload(String jwt) {
+		String[] parts = jwt.split("\\.");
+		if (parts.length != 3) return null;
+		String decodedPayload = new String(Base64.getUrlDecoder().decode(parts[1]));
+		return new JWTPayload().fromString(decodedPayload);
+	}
+
 	public String makeJWT(JWTPayload jwtPayload) {
 		Base64.Encoder encoder = Base64.getUrlEncoder().withoutPadding();
 
@@ -62,19 +69,10 @@ public class JWTFactory {
 		return signature.equals(recomputedSignature);
 	}
 
-	public JWTPayload extractJWTPayload(String jwt) {
-		String[] parts = jwt.split("\\.");
-		if (parts.length != 3) return null;
-
-		String payload = parts[1];
-		Base64.Decoder decoder = Base64.getUrlDecoder();
-		String payloadJson = new String(decoder.decode(payload));
-		return (JWTPayload) new JWTPayload().fromString(payloadJson);
-	}
-
 	public boolean validate(String jwt, boolean allowExpired) {
 		if (!validateJWTSignature(jwt)) return false;
 		JWTPayload payload = extractJWTPayload(jwt);
+		assert payload != null;
 		if (!allowExpired && System.currentTimeMillis() > payload.getExp()) return false;
 		return payload.getIss().equals(issuer);
 	}
