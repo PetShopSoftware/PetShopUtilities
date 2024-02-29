@@ -120,7 +120,8 @@ public class HTTPServer {
 	}
 
 	protected Quad<String, Route, Method, Map<String, String>> resolveRoute(HTTPMethod method, String path) throws NameNotFoundException {
-		String[] pathSegments = path.split("/");
+		String deparameterizedPath = path.split("\\?")[0];
+		String[] pathSegments = deparameterizedPath.split("/");
 		for (String routeID : routes.keySet()) {
 			String[] routeIDParts = routeID.split(" ");
 			HTTPMethod routeMethod = HTTPMethod.valueOf(routeIDParts[0]);
@@ -145,7 +146,7 @@ public class HTTPServer {
 			Method route = routeData.getV2();
 			return new Quad<>(routeID.split(" ")[1], routeInfo, route, pathParams);
 		}
-		throw new NameNotFoundException("Could not find route " + method + " " + path + ".");
+		throw new NameNotFoundException("Could not find route " + method + " " + deparameterizedPath + ".");
 	}
 
 	protected byte[] readBody(HttpExchange exchange) throws IOException {
