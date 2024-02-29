@@ -105,8 +105,8 @@ public interface IMongoDocument extends JSON {
 		MongoCollection<Document> collection = mongoConnection.getCollection(getClass());
 		FindIterable<Document> result = collection.find(filter);
 		if (sort != null) result.sort(sort);
-		if (limit != -1) result.skip(limit);
-		if (skip != -1) result.skip(skip);
+		if (skip > 0) result.skip(skip);
+		if (limit > 0) result.limit(limit);
 		Constructor<T> constructor = (Constructor<T>) getClass().getConstructor();
 		for (Document document : result) {
 			try {
