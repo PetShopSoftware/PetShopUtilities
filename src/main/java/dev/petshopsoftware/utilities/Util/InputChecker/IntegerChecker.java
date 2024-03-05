@@ -14,19 +14,19 @@ public class IntegerChecker extends InputChecker<Integer> {
 		}
 	}
 
-	public IntegerChecker min(int length) {
-		return (IntegerChecker) check(input -> input >= length);
+	public IntegerChecker min(int length, String message) {
+		return (IntegerChecker) check(input -> input >= length, message);
 	}
 
-	public IntegerChecker max(int length) {
-		return (IntegerChecker) check(input -> input <= length);
+	public IntegerChecker max(int length, String message) {
+		return (IntegerChecker) check(input -> input <= length, message);
 	}
 
-	public IntegerChecker range(int min, int max) {
-		return (IntegerChecker) check(input -> input >= min && input <= max);
+	public IntegerChecker range(int min, int max, String message) {
+		return (IntegerChecker) check(input -> input >= min && input <= max, message);
 	}
 
-	public IntegerChecker mod(int mod) {
-		return (IntegerChecker) check(input -> input % mod == 0);
+	public IntegerChecker mod(int mod, String message) {
+		return (IntegerChecker) check(input -> input % mod == 0, message);
 	}
 }

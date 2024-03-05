@@ -5,26 +5,26 @@ public class StringChecker extends InputChecker<String> {
 		super(input);
 	}
 
-	public StringChecker required() {
-		return (StringChecker) check(input -> input != null && !input.isEmpty());
+	public StringChecker required(String message) {
+		return (StringChecker) check(input -> input != null && !input.isEmpty(), message);
 	}
 
-	public StringChecker min(int length) {
-		return (StringChecker) check(input -> input.length() >= length);
+	public StringChecker min(int length, String message) {
+		return (StringChecker) check(input -> input.length() >= length, message);
 	}
 
-	public StringChecker max(int length) {
-		return (StringChecker) check(input -> input.length() <= length);
+	public StringChecker max(int length, String message) {
+		return (StringChecker) check(input -> input.length() <= length, message);
 	}
 
-	public StringChecker size(int min, int max) {
-		return (StringChecker) check(input -> input.length() >= min && input.length() <= max);
+	public StringChecker size(int min, int max, String message) {
+		return (StringChecker) check(input -> input.length() >= min && input.length() <= max, message);
 	}
 
-	public StringChecker regex(String exp) {
+	public StringChecker regex(String exp, String message) {
 		if (!exp.startsWith("^")) exp = "^" + exp;
 		if (!exp.endsWith("$")) exp = exp + "$";
 		String finalExp = exp;
-		return (StringChecker) check(input -> input.matches(finalExp));
+		return (StringChecker) check(input -> input.matches(finalExp), message);
 	}
 }

@@ -13,12 +13,12 @@ public class InputChecker<T> {
 	}
 
 	public InputChecker<T> check(Function<T, Boolean> check, String message) {
-		checks.put(check, message);
+		checks.put(check, message != null ? message : "Failed check #%i%.");
 		return this;
 	}
 
 	public InputChecker<T> check(Function<T, Boolean> check) {
-		return check(check, "Failed check #%i%.");
+		return check(check, null);
 	}
 
 	public T matches() throws InvalidInputException {

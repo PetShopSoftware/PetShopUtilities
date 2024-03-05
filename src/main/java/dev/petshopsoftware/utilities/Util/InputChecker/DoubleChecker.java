@@ -14,19 +14,19 @@ public class DoubleChecker extends InputChecker<Double> {
 		}
 	}
 
-	public DoubleChecker min(int length) {
-		return (DoubleChecker) check(input -> input >= length);
+	public DoubleChecker min(int length, String message) {
+		return (DoubleChecker) check(input -> input >= length, message);
 	}
 
-	public DoubleChecker max(int length) {
-		return (DoubleChecker) check(input -> input <= length);
+	public DoubleChecker max(int length, String message) {
+		return (DoubleChecker) check(input -> input <= length, message);
 	}
 
-	public DoubleChecker range(int min, int max) {
-		return (DoubleChecker) check(input -> input >= min && input <= max);
+	public DoubleChecker range(int min, int max, String message) {
+		return (DoubleChecker) check(input -> input >= min && input <= max, message);
 	}
 
-	public DoubleChecker mod(int mod) {
-		return (DoubleChecker) check(input -> input % mod == 0);
+	public DoubleChecker mod(int mod, String message) {
+		return (DoubleChecker) check(input -> input % mod == 0, message);
 	}
 }

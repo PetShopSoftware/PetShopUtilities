@@ -14,19 +14,19 @@ public class FloatChecker extends InputChecker<Float> {
 		}
 	}
 
-	public FloatChecker min(int length) {
-		return (FloatChecker) check(input -> input >= length);
+	public FloatChecker min(int length, String message) {
+		return (FloatChecker) check(input -> input >= length, message);
 	}
 
-	public FloatChecker max(int length) {
-		return (FloatChecker) check(input -> input <= length);
+	public FloatChecker max(int length, String message) {
+		return (FloatChecker) check(input -> input <= length, message);
 	}
 
-	public FloatChecker range(int min, int max) {
-		return (FloatChecker) check(input -> input >= min && input <= max);
+	public FloatChecker range(int min, int max, String message) {
+		return (FloatChecker) check(input -> input >= min && input <= max, message);
 	}
 
-	public FloatChecker mod(int mod) {
-		return (FloatChecker) check(input -> input % mod == 0);
+	public FloatChecker mod(int mod, String message) {
+		return (FloatChecker) check(input -> input % mod == 0, message);
 	}
 }

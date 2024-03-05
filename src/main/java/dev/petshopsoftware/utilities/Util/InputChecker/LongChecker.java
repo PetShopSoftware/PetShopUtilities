@@ -14,19 +14,19 @@ public class LongChecker extends InputChecker<Long> {
 		}
 	}
 
-	public LongChecker min(int length) {
-		return (LongChecker) check(input -> input >= length);
+	public LongChecker min(int length, String message) {
+		return (LongChecker) check(input -> input >= length, message);
 	}
 
-	public LongChecker max(int length) {
-		return (LongChecker) check(input -> input <= length);
+	public LongChecker max(int length, String message) {
+		return (LongChecker) check(input -> input <= length, message);
 	}
 
-	public LongChecker range(int min, int max) {
-		return (LongChecker) check(input -> input >= min && input <= max);
+	public LongChecker range(int min, int max, String message) {
+		return (LongChecker) check(input -> input >= min && input <= max, message);
 	}
 
-	public LongChecker mod(int mod) {
-		return (LongChecker) check(input -> input % mod == 0);
+	public LongChecker mod(int mod, String message) {
+		return (LongChecker) check(input -> input % mod == 0, message);
 	}
 }
