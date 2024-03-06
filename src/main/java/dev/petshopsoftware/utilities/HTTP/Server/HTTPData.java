@@ -13,7 +13,6 @@ import java.net.URI;
 import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
@@ -26,10 +25,10 @@ public class HTTPData {
 	@JsonIgnore
 	private final HTTPServer server;
 	private final Map<String, String> pathParams;
+	private final Headers headers;
 	private byte[] rawBody;
 	private String body;
 	private JsonNode jsonBody;
-	private Map<String, List<String>> headers;
 	private Map<String, String> queryParams;
 	private String ip;
 
@@ -40,8 +39,8 @@ public class HTTPData {
 		this.exchange = exchange;
 		this.server = server;
 		this.pathParams = pathParams;
+		this.headers = exchange.getRequestHeaders();
 		this.parseBody(rawBody);
-		this.parseHeaders(exchange);
 		this.parseQuery(exchange);
 		this.parseIP(exchange);
 	}
@@ -56,17 +55,6 @@ public class HTTPData {
 				throw e;
 			else this.jsonBody = null;
 		}
-	}
-
-	private void parseHeaders(HttpExchange exchange) {
-		Headers requestHeaders = exchange.getRequestHeaders();
-		Map<String, List<String>> headers = new HashMap<>();
-		for (Map.Entry<String, List<String>> entry : requestHeaders.entrySet()) {
-			String headerKey = entry.getKey();
-			List<String> headerValues = entry.getValue();
-			headers.put(headerKey.toLowerCase(), headerValues);
-		}
-		this.headers = headers;
 	}
 
 	private void parseQuery(HttpExchange exchange) {
@@ -111,7 +99,7 @@ public class HTTPData {
 		return queryParams;
 	}
 
-	public Map<String, List<String>> headers() {
+	public Headers headers() {
 		return headers;
 	}
 
