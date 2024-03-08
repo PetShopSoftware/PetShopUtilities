@@ -26,7 +26,7 @@ public abstract class MongoDocument implements IMongoDocument {
 		return document;
 	}
 
-	void update(MongoConnection mongoConnection) throws DocumentWriteException {
+	public void update(MongoConnection mongoConnection) throws DocumentWriteException {
 		if (initialDocument == null) save(mongoConnection);
 		List<Bson> actions = new LinkedList<>();
 		Document currentDocument = toDocument();
@@ -47,6 +47,6 @@ public abstract class MongoDocument implements IMongoDocument {
 	}
 
 	public void update() throws DocumentWriteException {
-		update(MongoConnection.INSTANCE);
+		update(MongoConnection.getInstance());
 	}
 }
