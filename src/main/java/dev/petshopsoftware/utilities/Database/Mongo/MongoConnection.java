@@ -5,7 +5,6 @@ import com.mongodb.client.MongoClient;
 import com.mongodb.client.MongoClients;
 import com.mongodb.client.MongoCollection;
 import com.mongodb.client.MongoDatabase;
-import dev.petshopsoftware.utilities.Logging.Log;
 import dev.petshopsoftware.utilities.Logging.Logger;
 import org.bson.Document;
 import org.bson.codecs.configuration.CodecRegistries;
@@ -22,28 +21,40 @@ public class MongoConnection {
 		java.util.logging.Logger.getLogger("org.bson").setLevel(Level.OFF);
 	}
 
-	private MongoClient client;
+	private final Logger logger;
+	private final MongoClient client;
 	private MongoDatabase database;
 
-	public MongoConnection(String mongoURI, String databaseName) {
-		try {
-			client = MongoClients.create(mongoURI);
+	public MongoConnection(MongoClient client, String databaseName) {
+		this.logger = Logger.get("mongo-" + (databaseName == null ? "undefined" : databaseName));
+		this.client = client;
+		if (databaseName != null) {
 			CodecRegistry defaultCodecRegistry = MongoClientSettings.getDefaultCodecRegistry();
 			CodecRegistry fromProvider = CodecRegistries.fromProviders(PojoCodecProvider.builder().automatic(true).build());
 			CodecRegistry pojoCodecRegistry = CodecRegistries.fromRegistries(defaultCodecRegistry, fromProvider);
-			database = client.getDatabase(databaseName).withCodecRegistry(pojoCodecRegistry);
-			Logger.get("mongo-" + databaseName).info("Mongo connection established.");
-		} catch (Exception e) {
-			Logger.get("mongo-" + databaseName).fatal(Log.fromException(new RuntimeException("Mongo connection failed.", e)));
-			return;
+			this.database = client.getDatabase(databaseName).withCodecRegistry(pojoCodecRegistry);
 		}
+		this.logger.info("Mongo connection established.");
 		if (INSTANCE == null) INSTANCE = this;
 	}
+
+	public MongoConnection(String databaseName) {
+		this(getInstance().getClient(), databaseName);
+	}
+
+	public MongoConnection(String mongoURI, String databaseName) {
+		this(MongoClients.create(mongoURI), databaseName);
+	}
+
 
 	public static MongoConnection getInstance() {
 		if (INSTANCE == null)
 			throw new NullPointerException("Instance is null. Please initialize a new MongoConnection.");
 		return INSTANCE;
+	}
+
+	public Logger getLogger() {
+		return logger;
 	}
 
 	public MongoClient getClient() {
