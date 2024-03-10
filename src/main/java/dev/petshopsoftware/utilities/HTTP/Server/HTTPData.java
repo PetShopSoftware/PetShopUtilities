@@ -17,6 +17,7 @@ import java.util.Map;
 import java.util.stream.Collectors;
 
 public class HTTPData {
+	private final HTTPMethod method;
 	private final String requestID;
 	private final String fullPath;
 	private final Route route;
@@ -32,7 +33,8 @@ public class HTTPData {
 	private Map<String, String> queryParams;
 	private String ip;
 
-	public HTTPData(String requestID, String fullPath, Route route, HttpExchange exchange, HTTPServer server, Map<String, String> pathParams, byte[] rawBody) throws IOException {
+	public HTTPData(HTTPMethod method, String requestID, String fullPath, Route route, HttpExchange exchange, HTTPServer server, Map<String, String> pathParams, byte[] rawBody) throws IOException {
+		this.method = method;
 		this.requestID = requestID;
 		this.fullPath = fullPath;
 		this.route = route;
@@ -111,6 +113,10 @@ public class HTTPData {
 		return exchange;
 	}
 
+	public HTTPMethod method() {
+		return method;
+	}
+
 	public String requestID() {
 		return requestID;
 	}
@@ -123,7 +129,7 @@ public class HTTPData {
 		return route;
 	}
 
-	public String getIP() {
+	public String ip() {
 		return ip;
 	}
 

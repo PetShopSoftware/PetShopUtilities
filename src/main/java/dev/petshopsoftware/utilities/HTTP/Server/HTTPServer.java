@@ -17,6 +17,7 @@ import java.io.IOException;
 import java.io.OutputStream;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
+import java.net.HttpURLConnection;
 import java.net.InetSocketAddress;
 import java.nio.charset.StandardCharsets;
 import java.util.*;
@@ -76,12 +77,26 @@ public class HTTPServer {
 		String path = exchange.getRequestURI().toString();
 		Quad<String, Route, Method, Map<String, String>> routeData = null;
 		HTTPResponse response = null;
+
+		if (method == HTTPMethod.OPTIONS) {
+			try {
+				exchange.getResponseHeaders().add("Access-Control-Allow-Origin", "*");
+				exchange.getResponseHeaders().add("Access-Control-Allow-Methods", "*");
+				exchange.getResponseHeaders().add("Access-Control-Allow-Headers", "*");
+				exchange.getResponseHeaders().add("Access-Control-Max-Age", "86400");
+				exchange.getResponseHeaders().add("Cache-Control", "no-cache");
+				exchange.sendResponseHeaders(HttpURLConnection.HTTP_OK, 0);
+			} catch (IOException e) {
+				logger.error(Log.fromException(new RuntimeException("Could not send OPTIONS response to client.", e)));
+			}
+		}
+
 		try {
 			routeData = resolveRoute(method, path);
-			HTTPData data = new HTTPData(requestID, routeData.getV1(), routeData.getV2(), exchange, this, routeData.getV4(), readBody(exchange));
+			HTTPData data = new HTTPData(method, requestID, routeData.getV1(), routeData.getV2(), exchange, this, routeData.getV4(), readBody(exchange));
 			logger.debug(data.toString());
 			for (HTTPHandler handler : handlers) {
-				if (!handler.matchesRoute(routeData.getV1(), routeData.getV2(), routeData.getV3())) continue;
+				if (!handler.matchesRoute(data, routeData.getV2(), routeData.getV3())) continue;
 				HTTPResponse handlerResponse = handler.handle(data, routeData.getV3());
 				if (handlerResponse != null) {
 					response = handlerResponse;
