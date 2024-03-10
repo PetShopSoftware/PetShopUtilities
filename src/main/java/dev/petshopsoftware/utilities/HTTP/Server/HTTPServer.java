@@ -17,7 +17,6 @@ import java.io.IOException;
 import java.io.OutputStream;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
-import java.net.HttpURLConnection;
 import java.net.InetSocketAddress;
 import java.nio.charset.StandardCharsets;
 import java.util.*;
@@ -78,14 +77,13 @@ public class HTTPServer {
 		Quad<String, Route, Method, Map<String, String>> routeData = null;
 		HTTPResponse response = null;
 
+		exchange.getResponseHeaders().add("Access-Control-Allow-Origin", "*");
+		exchange.getResponseHeaders().add("Access-Control-Allow-Methods", "*");
+		exchange.getResponseHeaders().add("Access-Control-Allow-Headers", "*");
+		exchange.getResponseHeaders().add("Access-Control-Max-Age", "86400");
 		if (method == HTTPMethod.OPTIONS) {
 			try {
-				exchange.getResponseHeaders().add("Access-Control-Allow-Origin", "*");
-				exchange.getResponseHeaders().add("Access-Control-Allow-Methods", "*");
-				exchange.getResponseHeaders().add("Access-Control-Allow-Headers", "*");
-				exchange.getResponseHeaders().add("Access-Control-Max-Age", "86400");
-				exchange.getResponseHeaders().add("Cache-Control", "no-cache");
-				exchange.sendResponseHeaders(HttpURLConnection.HTTP_OK, 0);
+				send(exchange, 200, new byte[0]);
 			} catch (IOException e) {
 				logger.error(Log.fromException(new RuntimeException("Could not send OPTIONS response to client.", e)));
 			}
