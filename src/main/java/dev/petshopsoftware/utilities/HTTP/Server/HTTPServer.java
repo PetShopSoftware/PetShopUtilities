@@ -87,6 +87,7 @@ public class HTTPServer {
 			} catch (IOException e) {
 				logger.error(Log.fromException(new RuntimeException("Could not send OPTIONS response to client.", e)));
 			}
+			return;
 		}
 
 		try {
