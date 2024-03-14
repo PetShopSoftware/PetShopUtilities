@@ -35,7 +35,7 @@ public abstract class MongoDocument implements IMongoDocument {
 		for (String key : uniqueFields) {
 			if (!currentDocument.containsKey(key))
 				actions.add(Updates.unset(key));
-			else if (!initialDocument.get(key).equals(currentDocument.get(key)))
+			else if (initialDocument.get(key) == null || !initialDocument.get(key).equals(currentDocument.get(key)))
 				actions.add(Updates.set(key, currentDocument.get(key)));
 		}
 		if (actions.isEmpty()) return;
