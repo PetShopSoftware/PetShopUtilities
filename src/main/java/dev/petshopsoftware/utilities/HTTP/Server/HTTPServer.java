@@ -111,6 +111,8 @@ public class HTTPServer {
 		} catch (Exception e) {
 			if (e.getCause() instanceof InvalidInputException)
 				response = getBadRequest(routeData == null ? null : routeData.getV2()).message(e.getCause().getMessage());
+			else if (e.getCause() instanceof HTTPResponseException)
+				response = ((HTTPResponseException) e.getCause()).getResponse();
 			else {
 				response = getInternalError(routeData == null ? null : routeData.getV2());
 				logger.error(Log.fromException(new RuntimeException("An internal error occurred.", e)));
