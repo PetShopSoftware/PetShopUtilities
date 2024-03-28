@@ -106,7 +106,7 @@ public class Request {
 	}
 
 	public Request authentication(String credential) {
-		return header("Authentication", credential);
+		return header("Authorization", credential);
 	}
 
 	public Request authentication(String method, String credential) {
