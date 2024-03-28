@@ -1,9 +1,11 @@
 package dev.petshopsoftware.utilities.HTTP.Request;
 
+import dev.petshopsoftware.utilities.HTTP.Server.HTTPResponseException;
+
 public abstract class RequestWrapper<T extends ResponseWrapper<?>> {
 	public abstract Request makeRequest();
 
-	public T execute() {
+	public T execute() throws HTTPResponseException {
 		Response httpResponse;
 		try {
 			httpResponse = makeRequest().execute();
@@ -13,5 +15,5 @@ public abstract class RequestWrapper<T extends ResponseWrapper<?>> {
 		return createResponse(httpResponse);
 	}
 
-	public abstract T createResponse(Response response);
+	public abstract T createResponse(Response response) throws HTTPResponseException;
 }
