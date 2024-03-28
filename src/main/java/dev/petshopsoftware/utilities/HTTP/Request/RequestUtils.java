@@ -12,7 +12,7 @@ public class RequestUtils {
 			default -> null;
 		};
 		if (httpResponse != null && response.jsonBody().path("message").isTextual())
-			httpResponse.message(response.jsonBody().path("message").asText());
+			httpResponse = httpResponse.message(response.jsonBody().path("message").asText());
 		return httpResponse;
 	}
 
