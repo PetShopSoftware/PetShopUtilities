@@ -110,7 +110,7 @@ public class Request {
 	}
 
 	public Request authentication(String method, String credential) {
-		return header("Authentication", method + " " + credential);
+		return authentication(method + " " + credential);
 	}
 
 	public Request body(byte[] body) {
