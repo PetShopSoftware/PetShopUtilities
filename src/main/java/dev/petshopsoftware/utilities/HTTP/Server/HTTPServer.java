@@ -31,6 +31,7 @@ public class HTTPServer {
 	private final HttpServer server;
 	private final Map<String, Pair<Route, Method>> routes = new HashMap<>();
 	private final List<HTTPHandler> handlers = new LinkedList<>();
+	private List<String> sortedRoutes = new ArrayList<>();
 
 	public HTTPServer(String subdomain, String domain, int port) {
 		try {
@@ -138,11 +139,6 @@ public class HTTPServer {
 	protected Quad<String, Route, Method, Map<String, String>> resolveRoute(HTTPMethod method, String path) throws NameNotFoundException {
 		String deparameterizedPath = path.split("\\?")[0];
 		String[] pathSegments = deparameterizedPath.split("/");
-		Set<String> sortedRoutes = routes.keySet().stream().sorted((r1, r2) -> {
-			int c1 = (int) r1.chars().filter(c -> c == ':').count();
-			int c2 = (int) r2.chars().filter(c -> c == ':').count();
-			return Integer.compare(c1, c2);
-		}).collect(Collectors.toCollection(LinkedHashSet::new));
 		for (String routeID : sortedRoutes) {
 			String[] routeIDParts = routeID.split(" ");
 			HTTPMethod routeMethod = HTTPMethod.valueOf(routeIDParts[0]);
@@ -181,6 +177,14 @@ public class HTTPServer {
 		os.close();
 	}
 
+	protected void sortRoutes() {
+		sortedRoutes = routes.keySet().stream().sorted((r1, r2) -> {
+			int c1 = (int) r1.chars().filter(c -> c == ':').count();
+			int c2 = (int) r2.chars().filter(c -> c == ':').count();
+			return Integer.compare(c1, c2);
+		}).toList();
+	}
+
 	public HTTPServer routers(String basePath, Class<?>... routers) {
 		for (Class<?> router : routers) {
 			String routerPath = "";
@@ -215,6 +219,7 @@ public class HTTPServer {
 				logger.info("Route " + id + " registered successfully.");
 			}
 		}
+		sortRoutes();
 		return this;
 	}
 
