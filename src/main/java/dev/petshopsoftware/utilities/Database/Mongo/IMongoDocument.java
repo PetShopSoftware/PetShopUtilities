@@ -75,7 +75,7 @@ public interface IMongoDocument extends JSON {
 		}
 		if (result == null) {
 			result = collection.find(filter).first();
-			if (mongoConnection.isCached(collection))
+			if (mongoConnection.isCached(collection) && cached && result != null)
 				MongoCache.getCache(collection).put(filter.toString(), result);
 		}
 		if (result != null)

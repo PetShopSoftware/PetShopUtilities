@@ -9,7 +9,7 @@ import java.util.Map;
 import java.util.concurrent.*;
 
 public class MongoCache {
-	public static final long DEFAULT_DURATION = 5;
+	public static final long DEFAULT_DURATION = 1;
 	public static final TimeUnit DEFAULT_UNIT = TimeUnit.MINUTES;
 	private static final Map<String, MongoCache> CACHES = new HashMap<>();
 
