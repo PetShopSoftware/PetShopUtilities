@@ -5,15 +5,25 @@ import com.mongodb.client.MongoClient;
 import com.mongodb.client.MongoClients;
 import com.mongodb.client.MongoCollection;
 import com.mongodb.client.MongoDatabase;
+import com.mongodb.client.model.Filters;
+import com.mongodb.client.model.IndexOptions;
+import com.mongodb.client.model.Indexes;
+import dev.petshopsoftware.utilities.Logging.Log;
 import dev.petshopsoftware.utilities.Logging.Logger;
 import org.bson.Document;
 import org.bson.codecs.configuration.CodecRegistries;
 import org.bson.codecs.configuration.CodecRegistry;
 import org.bson.codecs.pojo.PojoCodecProvider;
+import org.bson.conversions.Bson;
 
+import java.util.LinkedHashSet;
+import java.util.Optional;
+import java.util.Set;
+import java.util.concurrent.TimeUnit;
 import java.util.logging.Level;
 
 public class MongoConnection {
+	protected static final Set<String> indexedCollections = new LinkedHashSet<>();
 	protected static MongoConnection INSTANCE = null;
 
 	static {
@@ -74,6 +84,80 @@ public class MongoConnection {
 			clazz = clazz.getSuperclass();
 		if (clazz == null)
 			throw new IllegalArgumentException("Provided class and its superclasses are missing MongoInfo annotation.");
-		return getCollection(clazz.getAnnotation(MongoInfo.class).collection());
+		MongoInfo mongoInfo = clazz.getAnnotation(MongoInfo.class);
+		MongoCollection<Document> collection = getCollection(mongoInfo.collection());
+		setupIndexes(collection, mongoInfo);
+		return collection;
+	}
+
+	public void setupIndexes(MongoCollection<Document> collection, MongoInfo mongoInfo) {
+		String collectionID = collection.getNamespace().getFullName();
+		if (indexedCollections.contains(collectionID)) return;
+		indexedCollections.add(collectionID);
+
+		logger.info("Setting up indexes in collection " + collectionID + "...");
+
+		Set<String> existingIndexes = new LinkedHashSet<>();
+		collection.listIndexes().forEach(document -> existingIndexes.add(document.getString("name")));
+
+		MongoInfo.MongoIndexData[] indexes = mongoInfo.indexes();
+		for (MongoInfo.MongoIndexData data : indexes) {
+			String indexID = generateIndexName(data);
+
+			if (existingIndexes.contains(indexID)) {
+				logger.warn("Index " + indexID + " already exists in collection " + collectionID + ".");
+				continue;
+			}
+			
+			Optional<String> outdatedIndexID = existingIndexes.stream().filter(name -> name.startsWith("auto-managed_" + data.field())).findFirst();
+			if (outdatedIndexID.isPresent()) {
+				logger.debug("Updating index " + indexID + "(from old " + outdatedIndexID.get() + ") in collection " + collectionID + "...");
+				try {
+					collection.dropIndex(outdatedIndexID.get());
+				} catch (Exception e) {
+					logger.error(Log.fromException(new RuntimeException("Failed updating " + indexID + "(from old " + outdatedIndexID.get() + ") in collection " + collectionID + ".", e)));
+					continue;
+				}
+			}
+
+			IndexOptions options = new IndexOptions()
+					.name(indexID)
+					.unique(data.unique())
+					.sparse(data.sparse());
+			if (data.ttl() > 0)
+				options.expireAfter(data.ttl(), TimeUnit.MILLISECONDS);
+			if (data.partial())
+				options.partialFilterExpression(Filters.exists(data.field()));
+
+			Bson index;
+			if (data.text())
+				index = Indexes.text(data.field());
+			else if (data.ascending())
+				index = Indexes.ascending(data.field());
+			else
+				index = Indexes.descending(data.field());
+
+			try {
+				collection.createIndex(index, options);
+				logger.info("Index " + indexID + " successfully created in collection " + collectionID + ".");
+			} catch (Exception e) {
+				logger.error(Log.fromException(new RuntimeException("Failed creating " + indexID + " in collection " + collectionID + ".", e)));
+			}
+		}
+
+		logger.info("Finished setting up " + indexes.length + " index(es) in collection " + collectionID + ".");
+	}
+
+	private String generateIndexName(MongoInfo.MongoIndexData data) {
+		StringBuilder baseName = new StringBuilder("auto-managed");
+		baseName.append("_").append(data.field().replaceAll("\\.", "_"));
+		if (data.unique()) baseName.append("_unique");
+		if (data.sparse()) baseName.append("_sparse");
+		if (data.text()) baseName.append("_text");
+		if (data.partial()) baseName.append("_partial");
+		if (data.ttl() > 0) baseName.append("_ttl(").append(data.ttl()).append(")");
+		if (data.ascending()) baseName.append("_asc");
+		else baseName.append("_desc");
+		return baseName.toString();
 	}
 }
