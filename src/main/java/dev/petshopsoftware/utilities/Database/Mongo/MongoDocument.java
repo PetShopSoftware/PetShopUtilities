@@ -20,8 +20,8 @@ public abstract class MongoDocument implements IMongoDocument {
 	private Document initialDocument = null;
 
 	@Override
-	public <T extends IMongoDocument> T load(MongoConnection mongoConnection, Bson filter) throws DocumentReadException {
-		T document = IMongoDocument.super.load(mongoConnection, filter);
+	public <T extends IMongoDocument> T load(MongoConnection mongoConnection, Bson filter, boolean cached) throws DocumentReadException {
+		T document = IMongoDocument.super.load(mongoConnection, filter, cached);
 		initialDocument = document.toDocument();
 		return document;
 	}
@@ -41,7 +41,12 @@ public abstract class MongoDocument implements IMongoDocument {
 		if (actions.isEmpty()) return;
 		String identifierField = getMongoInfo().identifier();
 		MongoCollection<Document> collection = mongoConnection.getCollection(getClass());
-		UpdateResult result = collection.updateOne(Filters.eq(identifierField, currentDocument.get(identifierField)), Updates.combine(actions));
+		Bson filter = Filters.eq(identifierField, currentDocument.get(identifierField));
+		if (mongoConnection.isCached(collection)) {
+			MongoCache cache = MongoCache.getCache(collection);
+			cache.put(filter.toString(), currentDocument);
+		}
+		UpdateResult result = collection.updateOne(filter, Updates.combine(actions));
 		if (result.getModifiedCount() != 1)
 			throw new DocumentWriteException("Could not update " + getClass().getSimpleName() + " in database.");
 	}

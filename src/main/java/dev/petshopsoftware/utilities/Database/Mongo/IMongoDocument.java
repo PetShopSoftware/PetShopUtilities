@@ -44,8 +44,10 @@ public interface IMongoDocument extends JSON {
 		AtomicBoolean saveError = new AtomicBoolean(false);
 		MongoCollection<Document> collection = mongoConnection.getCollection(getClass());
 		Bson filter = Filters.eq(identifierField, id);
-		MongoCache cache = MongoCache.getCache(collection);
-		cache.put(filter.toString(), document);
+		if (mongoConnection.isCached(collection)) {
+			MongoCache cache = MongoCache.getCache(collection);
+			cache.put(filter.toString(), document);
+		}
 		Document replaceResult = collection.findOneAndReplace(filter, document);
 		if (replaceResult == null) {
 			InsertOneResult insertResult;
@@ -66,8 +68,13 @@ public interface IMongoDocument extends JSON {
 	default <T extends IMongoDocument> T load(MongoConnection mongoConnection, Bson filter, boolean cached) throws DocumentReadException {
 		MongoCollection<Document> collection = mongoConnection.getCollection(getClass());
 		Document result = null;
-		if (mongoConnection.isCached(collection) && cached)
-			result = MongoCache.getCache(collection).get(filter.toString());
+		if (mongoConnection.isCached(collection) && cached) {
+			MongoCache cache = MongoCache.getCache(collection);
+			String key = filter.toString();
+			result = cache.get(key);
+			if (result != null)
+				cache.getLogger().debug("Using cached value for key " + key + ".");
+		}
 		if (result == null) {
 			result = collection.find(filter).first();
 			if (mongoConnection.isCached(collection))
@@ -128,8 +135,10 @@ public interface IMongoDocument extends JSON {
 		String id = document.get(identifierField).toString();
 		MongoCollection<Document> collection = mongoConnection.getCollection(getClass());
 		Bson filter = Filters.eq(identifierField, id);
-		MongoCache cache = MongoCache.getCache(collection);
-		cache.remove(filter.toString());
+		if (mongoConnection.isCached(collection)) {
+			MongoCache cache = MongoCache.getCache(collection);
+			cache.remove(filter.toString());
+		}
 		DeleteResult deleteResult = collection.deleteOne(filter);
 		if (deleteResult.getDeletedCount() == 0)
 			throw new DocumentWriteException("Failed deleting " + getClass().getSimpleName() + " from database.");

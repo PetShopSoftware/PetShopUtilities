@@ -69,6 +69,7 @@ public class MongoCache {
 	}
 
 	public Document remove(String key) {
+		logger.debug("Removed key " + key + ".");
 		return cacheMap.remove(key);
 	}
 
