@@ -52,11 +52,14 @@ public class MongoCache {
 	}
 
 	public void put(String key, Document value, long duration, TimeUnit unit) {
+		if (cacheMap.containsKey(key))
+			logger.debug("Updated value for key " + key + ".");
+		else
+			logger.debug("Cached value for key " + key + ".");
 		cacheMap.put(key, value);
-		logger.debug("Cached key " + key + ".");
 		cleaner.schedule(() -> {
 			cacheMap.remove(key);
-			logger.debug("Cleaned key " + key + ".");
+			logger.debug("Cleaned value for key " + key + ".");
 		}, duration, unit);
 	}
 
@@ -65,11 +68,16 @@ public class MongoCache {
 	}
 
 	public Document get(String key) {
+		Document document = cacheMap.get(key);
+		if (document != null)
+			logger.debug("Retrieved value for key " + key + ".");
+		else
+			logger.debug("Value not found for key " + key + ".");
 		return cacheMap.get(key);
 	}
 
 	public Document remove(String key) {
-		logger.debug("Removed key " + key + ".");
+		logger.debug("Removed value for key " + key + ".");
 		return cacheMap.remove(key);
 	}
 

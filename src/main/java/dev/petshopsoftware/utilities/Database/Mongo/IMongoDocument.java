@@ -72,8 +72,6 @@ public interface IMongoDocument extends JSON {
 			MongoCache cache = MongoCache.getCache(collection);
 			String key = filter.toString();
 			result = cache.get(key);
-			if (result != null)
-				cache.getLogger().debug("Using cached value for key " + key + ".");
 		}
 		if (result == null) {
 			result = collection.find(filter).first();
