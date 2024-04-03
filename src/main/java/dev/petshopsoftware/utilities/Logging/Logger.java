@@ -93,10 +93,11 @@ public class Logger {
 		}
 
 		PrintStream printStream;
-		if (level == Level.ERROR || level == Level.FATAL)
+		if (message.getLevel() == Level.ERROR || message.getLevel() == Level.FATAL)
 			printStream = System.err;
 		else printStream = System.out;
-		printStream.println(message.colored());
+		if (message.getLevel().includes(this.level))
+			printStream.println(message.colored());
 
 		for (LogHandler handler : GLOBAL_HANDLERS)
 			handler.postLog(message);
