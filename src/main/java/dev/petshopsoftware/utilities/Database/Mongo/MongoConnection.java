@@ -16,9 +16,7 @@ import org.bson.codecs.configuration.CodecRegistry;
 import org.bson.codecs.pojo.PojoCodecProvider;
 import org.bson.conversions.Bson;
 
-import java.util.LinkedHashSet;
-import java.util.Optional;
-import java.util.Set;
+import java.util.*;
 import java.util.concurrent.TimeUnit;
 import java.util.logging.Level;
 
@@ -33,6 +31,8 @@ public class MongoConnection {
 
 	private final Logger logger;
 	private final MongoClient client;
+	private final Map<String, Boolean> cachedMap = new HashMap<>();
+	private boolean databaseCached = true;
 	private MongoDatabase database;
 
 	public MongoConnection(MongoClient client, String databaseName) {
@@ -56,7 +56,6 @@ public class MongoConnection {
 		this(MongoClients.create(mongoURI), databaseName);
 	}
 
-
 	public static MongoConnection getInstance() {
 		if (INSTANCE == null)
 			throw new NullPointerException("Instance is null. Please initialize a new MongoConnection.");
@@ -75,6 +74,18 @@ public class MongoConnection {
 		return database;
 	}
 
+	public Map<String, Boolean> getCachedMap() {
+		return cachedMap;
+	}
+
+	public boolean isDatabaseCached() {
+		return databaseCached;
+	}
+
+	public void setDatabaseCached(boolean databaseCached) {
+		this.databaseCached = databaseCached;
+	}
+
 	public MongoCollection<Document> getCollection(String name) {
 		return database.getCollection(name);
 	}
@@ -88,6 +99,14 @@ public class MongoConnection {
 		MongoCollection<Document> collection = getCollection(mongoInfo.collection());
 		setupIndexes(collection, mongoInfo);
 		return collection;
+	}
+
+	public boolean isCached(MongoCollection<Document> collection) {
+		return cachedMap.getOrDefault(collection.getNamespace().getFullName(), databaseCached);
+	}
+
+	public boolean isCached(Class<?> clazz) {
+		return isCached(getCollection(clazz));
 	}
 
 	public void setupIndexes(MongoCollection<Document> collection, MongoInfo mongoInfo) {
@@ -153,6 +172,7 @@ public class MongoConnection {
 			if (addedIndexes.contains(indexID)) continue;
 			try {
 				collection.dropIndex(indexID);
+				logger.info("Dropping outdated " + indexID + " in collection " + collectionID + ".");
 			} catch (Exception e) {
 				logger.error(Log.fromException(new RuntimeException("Failed dropping outdated " + indexID + " in collection " + collectionID + ".", e)));
 			}

@@ -20,6 +20,8 @@ import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 public interface IMongoDocument extends JSON {
+	boolean DEFAULT_CACHED = false;
+
 	default Document toDocument() {
 		return Document.parse(toJSON().toString());
 	}
@@ -41,7 +43,10 @@ public interface IMongoDocument extends JSON {
 		String id = document.get(identifierField).toString();
 		AtomicBoolean saveError = new AtomicBoolean(false);
 		MongoCollection<Document> collection = mongoConnection.getCollection(getClass());
-		Document replaceResult = collection.findOneAndReplace(new Document(identifierField, id), document);
+		Bson filter = Filters.eq(identifierField, id);
+		MongoCache cache = MongoCache.getCache(collection);
+		cache.put(filter.toString(), document);
+		Document replaceResult = collection.findOneAndReplace(filter, document);
 		if (replaceResult == null) {
 			InsertOneResult insertResult;
 			try {
@@ -58,28 +63,59 @@ public interface IMongoDocument extends JSON {
 		save(MongoConnection.INSTANCE);
 	}
 
-	default <T extends IMongoDocument> T load(MongoConnection mongoConnection, Bson filter) throws DocumentReadException {
+	default <T extends IMongoDocument> T load(MongoConnection mongoConnection, Bson filter, boolean cached) throws DocumentReadException {
 		MongoCollection<Document> collection = mongoConnection.getCollection(getClass());
-		Document result = collection.find(filter).first();
+		Document result = null;
+		if (mongoConnection.isCached(collection) && cached)
+			result = MongoCache.getCache(collection).get(filter.toString());
+		if (result == null) {
+			result = collection.find(filter).first();
+			if (mongoConnection.isCached(collection))
+				MongoCache.getCache(collection).put(filter.toString(), result);
+		}
 		if (result != null)
 			return fromDocument(result);
 		throw new DocumentReadException("Failed loading " + getClass().getSimpleName() + " from database.");
+	}
+
+	default <T extends IMongoDocument> T load(Bson filter, boolean cached) throws DocumentReadException {
+		return load(MongoConnection.getInstance(), filter, cached);
+	}
+
+	default <T extends IMongoDocument> T load(MongoConnection mongoConnection, Bson filter) throws DocumentReadException {
+		return load(mongoConnection, filter, DEFAULT_CACHED);
 	}
 
 	default <T extends IMongoDocument> T load(Bson filter) throws DocumentReadException {
 		return load(MongoConnection.getInstance(), filter);
 	}
 
+	default <T extends IMongoDocument> T load(MongoConnection mongoConnection, String idField, String id, boolean cached) throws DocumentReadException {
+		return load(mongoConnection, Filters.eq(idField, id), cached);
+	}
+
+	default <T extends IMongoDocument> T load(String idField, String id, boolean cached) throws DocumentReadException {
+		return load(MongoConnection.getInstance(), idField, id, cached);
+	}
+
 	default <T extends IMongoDocument> T load(MongoConnection mongoConnection, String idField, String id) throws DocumentReadException {
-		return load(mongoConnection, Filters.eq(idField, id));
+		return load(mongoConnection, idField, id, DEFAULT_CACHED);
 	}
 
 	default <T extends IMongoDocument> T load(String idField, String id) throws DocumentReadException {
 		return load(MongoConnection.getInstance(), idField, id);
 	}
 
+	default <T extends IMongoDocument> T load(MongoConnection mongoConnection, String id, boolean cached) throws DocumentReadException {
+		return load(mongoConnection, getMongoInfo().identifier(), id, cached);
+	}
+
+	default <T extends IMongoDocument> T load(String id, boolean cached) throws DocumentReadException {
+		return load(MongoConnection.getInstance(), id, cached);
+	}
+
 	default <T extends IMongoDocument> T load(MongoConnection mongoConnection, String id) throws DocumentReadException {
-		return load(mongoConnection, getMongoInfo().identifier(), id);
+		return load(mongoConnection, id, DEFAULT_CACHED);
 	}
 
 	default <T extends IMongoDocument> T load(String id) throws DocumentReadException {
@@ -91,7 +127,10 @@ public interface IMongoDocument extends JSON {
 		Document document = toDocument();
 		String id = document.get(identifierField).toString();
 		MongoCollection<Document> collection = mongoConnection.getCollection(getClass());
-		DeleteResult deleteResult = collection.deleteOne(new Document(identifierField, id));
+		Bson filter = Filters.eq(identifierField, id);
+		MongoCache cache = MongoCache.getCache(collection);
+		cache.remove(filter.toString());
+		DeleteResult deleteResult = collection.deleteOne(filter);
 		if (deleteResult.getDeletedCount() == 0)
 			throw new DocumentWriteException("Failed deleting " + getClass().getSimpleName() + " from database.");
 	}
