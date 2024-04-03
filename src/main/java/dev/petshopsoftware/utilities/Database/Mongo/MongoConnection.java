@@ -99,6 +99,7 @@ public class MongoConnection {
 
 		Set<String> existingIndexes = new LinkedHashSet<>();
 		collection.listIndexes().forEach(document -> existingIndexes.add(document.getString("name")));
+		Set<String> addedIndexes = new LinkedHashSet<>();
 
 		MongoInfo.MongoIndexData[] indexes = mongoInfo.indexes();
 		for (MongoInfo.MongoIndexData data : indexes) {
@@ -106,9 +107,10 @@ public class MongoConnection {
 
 			if (existingIndexes.contains(indexID)) {
 				logger.warn("Index " + indexID + " already exists in collection " + collectionID + ".");
+				addedIndexes.add(indexID);
 				continue;
 			}
-			
+
 			Optional<String> outdatedIndexID = existingIndexes.stream().filter(name -> name.startsWith("auto-managed_" + data.field())).findFirst();
 			if (outdatedIndexID.isPresent()) {
 				logger.debug("Updating index " + indexID + "(from old " + outdatedIndexID.get() + ") in collection " + collectionID + "...");
@@ -139,13 +141,24 @@ public class MongoConnection {
 
 			try {
 				collection.createIndex(index, options);
+				addedIndexes.add(indexID);
 				logger.info("Index " + indexID + " successfully created in collection " + collectionID + ".");
 			} catch (Exception e) {
 				logger.error(Log.fromException(new RuntimeException("Failed creating " + indexID + " in collection " + collectionID + ".", e)));
 			}
 		}
 
-		logger.info("Finished setting up " + indexes.length + " index(es) in collection " + collectionID + ".");
+		for (String indexID : existingIndexes) {
+			if (!indexID.startsWith("auto-managed_")) continue;
+			if (addedIndexes.contains(indexID)) continue;
+			try {
+				collection.dropIndex(indexID);
+			} catch (Exception e) {
+				logger.error(Log.fromException(new RuntimeException("Failed dropping outdated " + indexID + " in collection " + collectionID + ".", e)));
+			}
+		}
+
+		logger.info("Finished setting up " + indexes.length + " and updating index(es) in collection " + collectionID + ".");
 	}
 
 	private String generateIndexName(MongoInfo.MongoIndexData data) {
