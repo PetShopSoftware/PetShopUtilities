@@ -1,6 +1,7 @@
 package dev.petshopsoftware.utilities.Database.Mongo;
 
 import com.mongodb.client.MongoCollection;
+import dev.petshopsoftware.utilities.Logging.Level;
 import dev.petshopsoftware.utilities.Logging.Logger;
 import org.bson.Document;
 
@@ -9,8 +10,8 @@ import java.util.Map;
 import java.util.concurrent.*;
 
 public class MongoCache {
-	public static final long DEFAULT_DURATION = 1;
-	public static final TimeUnit DEFAULT_UNIT = TimeUnit.MINUTES;
+	public static final long DEFAULT_DURATION = 5;
+	public static final TimeUnit DEFAULT_UNIT = TimeUnit.SECONDS;
 	private static final Map<String, MongoCache> CACHES = new HashMap<>();
 
 	private final ConcurrentMap<String, Document> cacheMap = new ConcurrentHashMap<>();
@@ -24,6 +25,7 @@ public class MongoCache {
 		this.duration = duration;
 		this.unit = unit;
 		this.logger = Logger.get("cache-" + id);
+		this.logger.level(Level.INFO);
 		Runtime.getRuntime().addShutdownHook(new Thread(this::shutdown));
 		CACHES.put(id, this);
 		logger.info("Cache initialized successfully for collection " + id + ".");
