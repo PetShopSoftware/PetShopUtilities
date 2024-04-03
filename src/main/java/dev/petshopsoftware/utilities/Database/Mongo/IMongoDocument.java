@@ -20,7 +20,7 @@ import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 public interface IMongoDocument extends JSON {
-	boolean DEFAULT_CACHED = false;
+	boolean DEFAULT_CACHED = true;
 
 	default Document toDocument() {
 		return Document.parse(toJSON().toString());
