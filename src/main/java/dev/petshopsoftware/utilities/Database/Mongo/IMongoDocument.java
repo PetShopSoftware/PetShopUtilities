@@ -54,7 +54,7 @@ public interface IMongoDocument extends JSON {
 			try {
 				insertResult = collection.insertOne(document);
 			} catch (RuntimeException e) {
-				throw new DocumentWriteException(e);
+				throw new DocumentWriteException(e.getMessage());
 			}
 			if (insertResult.getInsertedId() == null)
 				throw new DocumentWriteException("Failed saving " + getClass().getSimpleName() + " to database.");
