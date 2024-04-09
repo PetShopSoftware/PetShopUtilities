@@ -1,11 +1,10 @@
 package dev.petshopsoftware.utilities.Database;
 
-public class DocumentReadException extends Exception {
-	public DocumentReadException(Exception exception) {
-		super(exception);
-	}
+import dev.petshopsoftware.utilities.HTTP.Server.HTTPResponse;
+import dev.petshopsoftware.utilities.HTTP.Server.HTTPResponseException;
 
+public class DocumentReadException extends HTTPResponseException {
 	public DocumentReadException(String message) {
-		super(message);
+		super(HTTPResponse.INTERNAL_ERROR.message(message));
 	}
 }
