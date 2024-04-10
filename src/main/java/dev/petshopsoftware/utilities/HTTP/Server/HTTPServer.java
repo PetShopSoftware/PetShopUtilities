@@ -13,9 +13,8 @@ import dev.petshopsoftware.utilities.Util.Types.Quad;
 
 import javax.naming.NameNotFoundException;
 import javax.net.ssl.*;
-import java.io.File;
-import java.io.FileInputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.OutputStream;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
@@ -252,10 +251,10 @@ public class HTTPServer {
 		return this;
 	}
 
-	public HTTPServer trustAllCerts(File pfxFile, String password, boolean userAuth) {
+	public HTTPServer trustAllCerts(InputStream pfxFile, String password, boolean userAuth) {
 		try {
 			KeyStore keyStore = KeyStore.getInstance("PKCS12");
-			keyStore.load(new FileInputStream(pfxFile), password.toCharArray());
+			keyStore.load(pfxFile, password.toCharArray());
 
 			KeyManagerFactory keyManagerFactory = KeyManagerFactory.getInstance(KeyManagerFactory.getDefaultAlgorithm());
 			keyManagerFactory.init(keyStore, password.toCharArray());
