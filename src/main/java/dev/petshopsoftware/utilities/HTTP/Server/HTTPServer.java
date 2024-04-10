@@ -270,17 +270,12 @@ public class HTTPServer {
 		return this.configure(new HttpsConfigurator(sslContext) {
 			@Override
 			public void configure(HttpsParameters params) {
-				try {
-					SSLContext c = SSLContext.getDefault();
-					SSLEngine engine = c.createSSLEngine();
-					params.setNeedClientAuth(true); // Request client auth
-					params.setCipherSuites(engine.getEnabledCipherSuites());
-					params.setProtocols(engine.getEnabledProtocols());
-					SSLParameters defaultSSLParameters = c.getDefaultSSLParameters();
-					params.setSSLParameters(defaultSSLParameters);
-				} catch (NoSuchAlgorithmException e) {
-					throw new RuntimeException(e);
-				}
+				SSLEngine engine = sslContext.createSSLEngine();
+				params.setNeedClientAuth(true);
+				params.setCipherSuites(engine.getEnabledCipherSuites());
+				params.setProtocols(engine.getEnabledProtocols());
+				SSLParameters defaultSSLParameters = sslContext.getDefaultSSLParameters();
+				params.setSSLParameters(defaultSSLParameters);
 			}
 		});
 	}
