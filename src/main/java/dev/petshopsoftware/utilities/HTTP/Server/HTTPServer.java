@@ -1,8 +1,7 @@
 package dev.petshopsoftware.utilities.HTTP.Server;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
-import com.sun.net.httpserver.HttpExchange;
-import com.sun.net.httpserver.HttpServer;
+import com.sun.net.httpserver.*;
 import dev.petshopsoftware.utilities.Logging.Log;
 import dev.petshopsoftware.utilities.Logging.Logger;
 import dev.petshopsoftware.utilities.Util.InputChecker.InvalidInputException;
@@ -13,12 +12,17 @@ import dev.petshopsoftware.utilities.Util.Types.Pair;
 import dev.petshopsoftware.utilities.Util.Types.Quad;
 
 import javax.naming.NameNotFoundException;
+import javax.net.ssl.*;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.net.InetSocketAddress;
 import java.nio.charset.StandardCharsets;
+import java.security.KeyManagementException;
+import java.security.NoSuchAlgorithmException;
+import java.security.SecureRandom;
+import java.security.cert.X509Certificate;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -28,14 +32,14 @@ public class HTTPServer {
 	private final String domain;
 	private final Logger logger;
 	private final int port;
-	private final HttpServer server;
+	private final HttpsServer server;
 	private final Map<String, Pair<Route, Method>> routes = new HashMap<>();
 	private final List<HTTPHandler> handlers = new LinkedList<>();
 	private List<String> sortedRoutes = new ArrayList<>();
 
 	public HTTPServer(String subdomain, String domain, int port) {
 		try {
-			this.server = HttpServer.create(new InetSocketAddress(port), 0);
+			this.server = HttpsServer.create(new InetSocketAddress(port), 0);
 		} catch (IOException e) {
 			throw new RuntimeException(e);
 		}
@@ -230,6 +234,48 @@ public class HTTPServer {
 	public HTTPServer handlers(HTTPHandler... handlers) {
 		this.handlers.addAll(List.of(handlers));
 		return this;
+	}
+
+	public HTTPServer configure(HttpsConfigurator httpsConfigurator) {
+		if (this.server instanceof HttpsServer)
+			this.server.setHttpsConfigurator(httpsConfigurator);
+		else
+			throw new RuntimeException("This HTTPServer does not support this action.");
+		return this;
+	}
+
+	public HTTPServer trustAllCerts() throws NoSuchAlgorithmException, KeyManagementException {
+		TrustManager[] trustAllCerts = new TrustManager[]{
+				new X509TrustManager() {
+					public void checkClientTrusted(X509Certificate[] chain, String authType) {
+					}
+
+					public java.security.cert.X509Certificate[] getAcceptedIssuers() {
+						return null;
+					}
+
+					public void checkServerTrusted(X509Certificate[] certs, String authType) {
+					}
+				}
+		};
+		SSLContext sslContext = SSLContext.getInstance("TLS");
+		sslContext.init(null, trustAllCerts, new SecureRandom());
+		return this.configure(new HttpsConfigurator(sslContext) {
+			@Override
+			public void configure(HttpsParameters params) {
+				try {
+					SSLContext c = SSLContext.getDefault();
+					SSLEngine engine = c.createSSLEngine();
+					params.setNeedClientAuth(true); // Request client auth
+					params.setCipherSuites(engine.getEnabledCipherSuites());
+					params.setProtocols(engine.getEnabledProtocols());
+					SSLParameters defaultSSLParameters = c.getDefaultSSLParameters();
+					params.setSSLParameters(defaultSSLParameters);
+				} catch (NoSuchAlgorithmException e) {
+					throw new RuntimeException(e);
+				}
+			}
+		});
 	}
 
 	public boolean validatePath(String path) {
