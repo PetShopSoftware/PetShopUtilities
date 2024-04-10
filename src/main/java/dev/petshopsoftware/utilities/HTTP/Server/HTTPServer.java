@@ -13,14 +13,15 @@ import dev.petshopsoftware.utilities.Util.Types.Quad;
 
 import javax.naming.NameNotFoundException;
 import javax.net.ssl.*;
+import java.io.File;
+import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.net.InetSocketAddress;
 import java.nio.charset.StandardCharsets;
-import java.security.KeyManagementException;
-import java.security.NoSuchAlgorithmException;
+import java.security.KeyStore;
 import java.security.SecureRandom;
 import java.security.cert.X509Certificate;
 import java.util.*;
@@ -55,11 +56,11 @@ public class HTTPServer {
 	}
 
 	public HTTPServer(String subdomain, String domain, int port) {
-		this(subdomain, domain, port, false);
+		this(subdomain, domain, port, true);
 	}
 
 	public HTTPServer(int port) {
-		this(null, null, port, false);
+		this(null, null, port, true);
 	}
 
 	protected void init() {
@@ -251,33 +252,46 @@ public class HTTPServer {
 		return this;
 	}
 
-	public HTTPServer trustAllCerts(boolean userAuth) throws NoSuchAlgorithmException, KeyManagementException {
-		TrustManager[] trustAllCerts = new TrustManager[]{
-				new X509TrustManager() {
-					public void checkClientTrusted(X509Certificate[] chain, String authType) {
-					}
+	public HTTPServer trustAllCerts(File pfxFile, String password, boolean userAuth) {
+		try {
+			KeyStore keyStore = KeyStore.getInstance("PKCS12");
+			keyStore.load(new FileInputStream(pfxFile), password.toCharArray());
 
-					public X509Certificate[] getAcceptedIssuers() {
-						return new X509Certificate[0];
-					}
+			KeyManagerFactory keyManagerFactory = KeyManagerFactory.getInstance(KeyManagerFactory.getDefaultAlgorithm());
+			keyManagerFactory.init(keyStore, password.toCharArray());
 
-					public void checkServerTrusted(X509Certificate[] certs, String authType) {
+			TrustManager[] trustAllCerts = new TrustManager[]{
+					new X509TrustManager() {
+						public void checkClientTrusted(X509Certificate[] chain, String authType) {
+						}
+
+						public X509Certificate[] getAcceptedIssuers() {
+							return new X509Certificate[0];
+						}
+
+						public void checkServerTrusted(X509Certificate[] certs, String authType) {
+						}
 					}
+			};
+
+			SSLContext sslContext = SSLContext.getInstance("TLS");
+			sslContext.init(keyManagerFactory.getKeyManagers(), trustAllCerts, new SecureRandom());
+
+			return this.configure(new HttpsConfigurator(sslContext) {
+				@Override
+				public void configure(HttpsParameters params) {
+					SSLEngine engine = sslContext.createSSLEngine();
+					params.setNeedClientAuth(userAuth);
+					params.setCipherSuites(engine.getEnabledCipherSuites());
+					params.setProtocols(engine.getEnabledProtocols());
+					SSLParameters defaultSSLParameters = sslContext.getDefaultSSLParameters();
+					params.setSSLParameters(defaultSSLParameters);
 				}
-		};
-		SSLContext sslContext = SSLContext.getInstance("TLS");
-		sslContext.init(null, trustAllCerts, new SecureRandom());
-		return this.configure(new HttpsConfigurator(sslContext) {
-			@Override
-			public void configure(HttpsParameters params) {
-				SSLEngine engine = sslContext.createSSLEngine();
-				params.setNeedClientAuth(userAuth);
-				params.setCipherSuites(engine.getEnabledCipherSuites());
-				params.setProtocols(engine.getEnabledProtocols());
-				SSLParameters defaultSSLParameters = sslContext.getDefaultSSLParameters();
-				params.setSSLParameters(defaultSSLParameters);
-			}
-		});
+			});
+		} catch (Exception e) {
+			this.logger.error(Log.fromException(e));
+		}
+		return this;
 	}
 
 	public boolean validatePath(String path) {
