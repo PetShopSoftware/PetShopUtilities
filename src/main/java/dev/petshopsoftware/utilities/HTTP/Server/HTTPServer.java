@@ -32,14 +32,17 @@ public class HTTPServer {
 	private final String domain;
 	private final Logger logger;
 	private final int port;
-	private final HttpsServer server;
+	private final HttpServer server;
 	private final Map<String, Pair<Route, Method>> routes = new HashMap<>();
 	private final List<HTTPHandler> handlers = new LinkedList<>();
 	private List<String> sortedRoutes = new ArrayList<>();
 
-	public HTTPServer(String subdomain, String domain, int port) {
+	public HTTPServer(String subdomain, String domain, int port, boolean ssl) {
 		try {
-			this.server = HttpsServer.create(new InetSocketAddress(port), 0);
+			if (ssl)
+				this.server = HttpsServer.create(new InetSocketAddress(port), 0);
+			else
+				this.server = HttpServer.create(new InetSocketAddress(port), 0);
 		} catch (IOException e) {
 			throw new RuntimeException(e);
 		}
@@ -51,8 +54,12 @@ public class HTTPServer {
 		init();
 	}
 
+	public HTTPServer(String subdomain, String domain, int port) {
+		this(subdomain, domain, port, false);
+	}
+
 	public HTTPServer(int port) {
-		this(null, null, port);
+		this(null, null, port, false);
 	}
 
 	protected void init() {
@@ -238,7 +245,7 @@ public class HTTPServer {
 
 	public HTTPServer configure(HttpsConfigurator httpsConfigurator) {
 		if (this.server instanceof HttpsServer)
-			this.server.setHttpsConfigurator(httpsConfigurator);
+			((HttpsServer) this.server).setHttpsConfigurator(httpsConfigurator);
 		else
 			throw new RuntimeException("This HTTPServer does not support this action.");
 		return this;
