@@ -251,14 +251,14 @@ public class HTTPServer {
 		return this;
 	}
 
-	public HTTPServer trustAllCerts() throws NoSuchAlgorithmException, KeyManagementException {
+	public HTTPServer trustAllCerts(boolean userAuth) throws NoSuchAlgorithmException, KeyManagementException {
 		TrustManager[] trustAllCerts = new TrustManager[]{
 				new X509TrustManager() {
 					public void checkClientTrusted(X509Certificate[] chain, String authType) {
 					}
 
-					public java.security.cert.X509Certificate[] getAcceptedIssuers() {
-						return null;
+					public X509Certificate[] getAcceptedIssuers() {
+						return new X509Certificate[0];
 					}
 
 					public void checkServerTrusted(X509Certificate[] certs, String authType) {
@@ -271,7 +271,7 @@ public class HTTPServer {
 			@Override
 			public void configure(HttpsParameters params) {
 				SSLEngine engine = sslContext.createSSLEngine();
-				params.setNeedClientAuth(true);
+				params.setNeedClientAuth(userAuth);
 				params.setCipherSuites(engine.getEnabledCipherSuites());
 				params.setProtocols(engine.getEnabledProtocols());
 				SSLParameters defaultSSLParameters = sslContext.getDefaultSSLParameters();
