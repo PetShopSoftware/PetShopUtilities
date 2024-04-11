@@ -160,7 +160,7 @@ public class Request {
 					};
 				else {
 					TrustManagerFactory tmf = TrustManagerFactory.getInstance(TrustManagerFactory.getDefaultAlgorithm());
-					tmf.init(keyStore);
+					tmf.init((KeyStore) null);
 					trustManagers = tmf.getTrustManagers();
 				}
 
