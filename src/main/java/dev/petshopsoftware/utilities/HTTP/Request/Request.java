@@ -20,6 +20,7 @@ public class Request {
 	private final Map<String, X509Certificate> certificates = new HashMap<>();
 	private final HttpURLConnection connection;
 	private boolean trustAllCerts = false;
+	private byte[] body = null;
 
 	public Request(String url, String proxy) {
 		try {
@@ -54,14 +55,19 @@ public class Request {
 	}
 
 	public Request trustAllCerts() {
+		if (!(connection instanceof HttpsURLConnection))
+			return this;
 		this.trustAllCerts = true;
 		return this;
 	}
 
 	public Request certificate(String alias, X509Certificate certificate) {
+		if (!(connection instanceof HttpsURLConnection))
+			throw new RuntimeException("Certificates are not supported by HttpURLConnection.");
 		this.certificates.put(alias, certificate);
 		return this;
 	}
+
 
 	public Request header(String key, String value) {
 		connection.setRequestProperty(key, value);
@@ -94,12 +100,7 @@ public class Request {
 
 	public Request body(byte[] body) {
 		connection.setDoOutput(true);
-		try (OutputStream os = connection.getOutputStream()) {
-			os.write(body, 0, body.length);
-			os.flush();
-		} catch (Exception e) {
-			throw new RuntimeException(e);
-		}
+		this.body = body;
 		return this;
 	}
 
@@ -133,47 +134,68 @@ public class Request {
 		return connection;
 	}
 
-	public Response execute() throws RequestException {
-		if (connection instanceof HttpsURLConnection) {
-			try {
+	private void configureSSLContext() throws RequestException {
+		if (!(connection instanceof HttpsURLConnection))
+			return;
+
+		try {
+			SSLContext sslContext = SSLContext.getInstance("TLS");
+			KeyManager[] keyManagers = null;
+			if (!certificates.isEmpty()) {
 				KeyStore keyStore = KeyStore.getInstance(KeyStore.getDefaultType());
 				keyStore.load(null, null);
-				for (Map.Entry<String, X509Certificate> entry : this.certificates.entrySet())
+				for (Map.Entry<String, X509Certificate> entry : certificates.entrySet())
 					keyStore.setCertificateEntry(entry.getKey(), entry.getValue());
 				KeyManagerFactory kmf = KeyManagerFactory.getInstance(KeyManagerFactory.getDefaultAlgorithm());
 				kmf.init(keyStore, null);
+				keyManagers = kmf.getKeyManagers();
+			}
 
-				TrustManager[] trustManagers;
-				if (trustAllCerts)
-					trustManagers = new TrustManager[]{
-							new X509TrustManager() {
-								public java.security.cert.X509Certificate[] getAcceptedIssuers() {
-									return new X509Certificate[0];
-								}
-
-								public void checkClientTrusted(X509Certificate[] certs, String authType) {
-								}
-
-								public void checkServerTrusted(X509Certificate[] certs, String authType) {
-								}
+			if (trustAllCerts) {
+				TrustManager[] trustAllManagers = new TrustManager[]{
+						new X509TrustManager() {
+							public void checkClientTrusted(X509Certificate[] chain, String authType) {
 							}
-					};
-				else {
-					TrustManagerFactory tmf = TrustManagerFactory.getInstance(TrustManagerFactory.getDefaultAlgorithm());
-					tmf.init((KeyStore) null);
-					trustManagers = tmf.getTrustManagers();
-				}
 
-				SSLContext sslContext = SSLContext.getInstance("TLS");
-				sslContext.init(kmf.getKeyManagers(), trustManagers, new SecureRandom());
+							public void checkServerTrusted(X509Certificate[] chain, String authType) {
+							}
 
-				((HttpsURLConnection) connection).setSSLSocketFactory(sslContext.getSocketFactory());
-			} catch (KeyStoreException | IOException | NoSuchAlgorithmException | CertificateException |
-					 UnrecoverableKeyException | KeyManagementException e) {
+							public X509Certificate[] getAcceptedIssuers() {
+								return new X509Certificate[0];
+							}
+						}
+				};
+				sslContext.init(keyManagers, trustAllManagers, new SecureRandom());
+			} else {
+				TrustManagerFactory tmf = TrustManagerFactory.getInstance(TrustManagerFactory.getDefaultAlgorithm());
+				tmf.init((KeyStore) null);
+				sslContext.init(keyManagers, tmf.getTrustManagers(), new SecureRandom());
+			}
+
+			HttpsURLConnection httpsConn = (HttpsURLConnection) connection;
+			httpsConn.setSSLSocketFactory(sslContext.getSocketFactory());
+			httpsConn.setHostnameVerifier((hostname, session) -> true);
+		} catch (KeyStoreException | NoSuchAlgorithmException | CertificateException | UnrecoverableKeyException |
+				 KeyManagementException | IOException e) {
+			throw new RuntimeException("Failed to set up SSL context.", e);
+		}
+	}
+
+	public Response execute() throws RequestException {
+		configureSSLContext();
+		if (this.body != null) {
+			try (OutputStream os = connection.getOutputStream()) {
+				os.write(body, 0, body.length);
+				os.flush();
+			} catch (Exception e) {
 				throw new RuntimeException(e);
 			}
 		}
-
+		try {
+			connection.connect();
+		} catch (IOException e) {
+			throw new RequestException(e);
+		}
 		Response response = new Response(this);
 		if (response.statusCode() < 200 || response.statusCode() > 399)
 			throw new RequestException(response);
