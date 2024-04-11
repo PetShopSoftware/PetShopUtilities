@@ -9,7 +9,9 @@ import java.io.OutputStream;
 import java.net.*;
 import java.nio.charset.StandardCharsets;
 import java.security.KeyManagementException;
+import java.security.KeyStore;
 import java.security.NoSuchAlgorithmException;
+import java.security.SecureRandom;
 import java.security.cert.X509Certificate;
 import java.util.Iterator;
 import java.util.Map;
@@ -77,8 +79,32 @@ public class Request {
 				}
 			};
 			((HttpsURLConnection) connection).setHostnameVerifier(allHostsValid);
-
 		} catch (KeyManagementException | NoSuchAlgorithmException e) {
+			throw new RuntimeException(e);
+		}
+		return this;
+	}
+
+	public Request certificate(String alias, X509Certificate certificate) {
+		if (!(connection instanceof HttpsURLConnection))
+			throw new RuntimeException("Certificates are not supported by HttpURLConnection.");
+		try {
+			KeyStore keyStore = KeyStore.getInstance(KeyStore.getDefaultType());
+			keyStore.load(null, null);
+			keyStore.setCertificateEntry(alias, certificate);
+
+			KeyManagerFactory kmf = KeyManagerFactory.getInstance(KeyManagerFactory.getDefaultAlgorithm());
+			kmf.init(keyStore, null);
+
+			TrustManagerFactory tmf = TrustManagerFactory.getInstance(TrustManagerFactory.getDefaultAlgorithm());
+			tmf.init(keyStore);
+
+			SSLContext sslContext = SSLContext.getInstance("TLS");
+			sslContext.init(kmf.getKeyManagers(), tmf.getTrustManagers(), new SecureRandom());
+
+
+			((HttpsURLConnection) connection).setSSLSocketFactory(sslContext.getSocketFactory());
+		} catch (Exception e) {
 			throw new RuntimeException(e);
 		}
 		return this;
