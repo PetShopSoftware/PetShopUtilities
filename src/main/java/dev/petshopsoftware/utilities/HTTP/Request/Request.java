@@ -8,7 +8,6 @@ import javax.net.ssl.*;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.lang.reflect.Field;
-import java.lang.reflect.Modifier;
 import java.net.*;
 import java.nio.charset.StandardCharsets;
 import java.security.*;
@@ -21,21 +20,17 @@ public class Request {
 	static {
 		try {
 			Field methodsField = HttpURLConnection.class.getDeclaredField("methods");
-
-			Field modifiersField = Field.class.getDeclaredField("modifiers");
-			modifiersField.setAccessible(true);
-			modifiersField.setInt(methodsField, methodsField.getModifiers() & ~Modifier.FINAL);
-
 			methodsField.setAccessible(true);
 
 			String[] oldMethods = (String[]) methodsField.get(null);
 			Set<String> methodsSet = new LinkedHashSet<>(Arrays.asList(oldMethods));
-			methodsSet.addAll(Arrays.stream(HTTPMethod.values()).map(Enum::name).collect(Collectors.toSet()));
-			String[] newMethods = methodsSet.toArray(new String[0]);
 
+			methodsSet.addAll(Arrays.stream(HTTPMethod.values()).map(Enum::name).collect(Collectors.toSet()));
+
+			String[] newMethods = methodsSet.toArray(new String[0]);
 			methodsField.set(null, newMethods);
-		} catch (NoSuchFieldException | IllegalAccessException e) {
-			throw new IllegalStateException(e);
+		} catch (ReflectiveOperationException e) {
+			throw new RuntimeException("Failed to modify HttpURLConnection methods", e);
 		}
 	}
 
