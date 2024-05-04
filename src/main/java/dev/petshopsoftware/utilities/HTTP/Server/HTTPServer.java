@@ -2,7 +2,7 @@ package dev.petshopsoftware.utilities.HTTP.Server;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.sun.net.httpserver.*;
-import dev.petshopsoftware.utilities.Logging.Log;
+import dev.petshopsoftware.utilities.Logging.LogMessage;
 import dev.petshopsoftware.utilities.Logging.Logger;
 import dev.petshopsoftware.utilities.Util.InputChecker.InvalidInputException;
 import dev.petshopsoftware.utilities.Util.ParsingMode;
@@ -66,7 +66,7 @@ public class HTTPServer {
 		try {
 			this.setupNGINX();
 		} catch (Exception e) {
-			logger.error(Log.fromException(e));
+			logger.error(LogMessage.fromException(e));
 		}
 		server.createContext("/", this::handleRequest);
 		logger.info("Server " + id + " initialized successfully.");
@@ -97,7 +97,7 @@ public class HTTPServer {
 			try {
 				send(exchange, 200, new byte[0]);
 			} catch (IOException e) {
-				logger.error(Log.fromException(new RuntimeException("Could not send OPTIONS response to client.", e)));
+				logger.error(LogMessage.fromException(new RuntimeException("Could not send OPTIONS response to client.", e)));
 			}
 			return;
 		}
@@ -127,7 +127,7 @@ public class HTTPServer {
 				response = ((HTTPResponseException) e.getCause()).getResponse();
 			else {
 				response = getInternalError(routeData == null ? null : routeData.getV2());
-				logger.error(Log.fromException(new RuntimeException("An internal error occurred.", e)));
+				logger.error(LogMessage.fromException(new RuntimeException("An internal error occurred.", e)));
 			}
 		}
 		try {
@@ -143,7 +143,7 @@ public class HTTPServer {
 					+ exchange.getResponseHeaders().entrySet().stream().map(entry -> entry.getKey() + ": " + String.join(", ", entry.getValue())).collect(Collectors.joining("\n")) + "\n"
 					+ (response.getParsingMode() == ParsingMode.RAW ? HexFormat.of().formatHex(bytes) : new String(bytes)));
 		} catch (IOException e) {
-			logger.error(Log.fromException(new RuntimeException("Could not send response to client.", e)));
+			logger.error(LogMessage.fromException(new RuntimeException("Could not send response to client.", e)));
 		}
 	}
 
@@ -285,7 +285,7 @@ public class HTTPServer {
 				}
 			});
 		} catch (Exception e) {
-			this.logger.error(Log.fromException(e));
+			this.logger.error(LogMessage.fromException(e));
 		}
 		return this;
 	}

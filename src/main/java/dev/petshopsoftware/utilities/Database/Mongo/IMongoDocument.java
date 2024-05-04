@@ -8,7 +8,7 @@ import com.mongodb.client.result.InsertOneResult;
 import dev.petshopsoftware.utilities.Database.DocumentReadException;
 import dev.petshopsoftware.utilities.Database.DocumentWriteException;
 import dev.petshopsoftware.utilities.JSON.JSON;
-import dev.petshopsoftware.utilities.Logging.Log;
+import dev.petshopsoftware.utilities.Logging.LogMessage;
 import dev.petshopsoftware.utilities.Logging.Logger;
 import org.bson.Document;
 import org.bson.conversions.Bson;
@@ -159,7 +159,7 @@ public interface IMongoDocument extends JSON {
 				T object = constructor.newInstance().fromDocument(document);
 				objects.add(object);
 			} catch (InstantiationException | IllegalAccessException | InvocationTargetException e) {
-				Logger.get("main").error(Log.fromException(new RuntimeException("Failed to initialize MongoDocument object.", e)));
+				Logger.get("main").error(LogMessage.fromException(new RuntimeException("Failed to initialize MongoDocument object.", e)));
 			}
 		}
 		return objects;

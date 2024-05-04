@@ -8,7 +8,7 @@ import com.mongodb.client.MongoDatabase;
 import com.mongodb.client.model.Filters;
 import com.mongodb.client.model.IndexOptions;
 import com.mongodb.client.model.Indexes;
-import dev.petshopsoftware.utilities.Logging.Log;
+import dev.petshopsoftware.utilities.Logging.LogMessage;
 import dev.petshopsoftware.utilities.Logging.Logger;
 import org.bson.Document;
 import org.bson.codecs.configuration.CodecRegistries;
@@ -136,7 +136,7 @@ public class MongoConnection {
 				try {
 					collection.dropIndex(outdatedIndexID.get());
 				} catch (Exception e) {
-					logger.error(Log.fromException(new RuntimeException("Failed updating " + indexID + "(from old " + outdatedIndexID.get() + ") in collection " + collectionID + ".", e)));
+					logger.error(LogMessage.fromException(new RuntimeException("Failed updating " + indexID + "(from old " + outdatedIndexID.get() + ") in collection " + collectionID + ".", e)));
 					continue;
 				}
 			}
@@ -163,7 +163,7 @@ public class MongoConnection {
 				addedIndexes.add(indexID);
 				logger.info("Index " + indexID + " successfully created in collection " + collectionID + ".");
 			} catch (Exception e) {
-				logger.error(Log.fromException(new RuntimeException("Failed creating " + indexID + " in collection " + collectionID + ".", e)));
+				logger.error(LogMessage.fromException(new RuntimeException("Failed creating " + indexID + " in collection " + collectionID + ".", e)));
 			}
 		}
 
@@ -174,7 +174,7 @@ public class MongoConnection {
 				collection.dropIndex(indexID);
 				logger.info("Dropping outdated " + indexID + " in collection " + collectionID + ".");
 			} catch (Exception e) {
-				logger.error(Log.fromException(new RuntimeException("Failed dropping outdated " + indexID + " in collection " + collectionID + ".", e)));
+				logger.error(LogMessage.fromException(new RuntimeException("Failed dropping outdated " + indexID + " in collection " + collectionID + ".", e)));
 			}
 		}
 

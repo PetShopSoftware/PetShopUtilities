@@ -1,7 +1,7 @@
 package dev.petshopsoftware.utilities.Logging;
 
 public interface LogHandler {
-	Log preLog(Log message);
+	LogMessage preLog(LogMessage message);
 
-	void postLog(Log message);
+	void postLog(LogMessage message);
 }

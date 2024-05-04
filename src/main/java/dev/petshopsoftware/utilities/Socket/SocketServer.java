@@ -1,6 +1,6 @@
 package dev.petshopsoftware.utilities.Socket;
 
-import dev.petshopsoftware.utilities.Logging.Log;
+import dev.petshopsoftware.utilities.Logging.LogMessage;
 import dev.petshopsoftware.utilities.Logging.Logger;
 import dev.petshopsoftware.utilities.Util.ParsingMode;
 import dev.petshopsoftware.utilities.Util.ReflectionUtil;
@@ -69,9 +69,9 @@ public abstract class SocketServer extends WebSocketServer {
 	@Override
 	public void onError(WebSocket webSocket, Exception e) {
 		if (webSocket == null)
-			logger.error(Log.fromException(new RuntimeException("Socket " + name + " exception.", e)));
+			logger.error(LogMessage.fromException(new RuntimeException("Socket " + name + " exception.", e)));
 		else
-			logger.error(Log.fromException(new RuntimeException("Client " + clientsBySocket.get(webSocket).getID() + " exception.", e)));
+			logger.error(LogMessage.fromException(new RuntimeException("Client " + clientsBySocket.get(webSocket).getID() + " exception.", e)));
 	}
 
 	protected void handleConnection(WebSocket webSocket, ClientHandshake clientHandshake) {
@@ -98,7 +98,7 @@ public abstract class SocketServer extends WebSocketServer {
 			channel = message[0];
 			content = message.length > 1 ? message[1] : null;
 		} catch (Exception e) {
-			logger.warn(Log.fromException(new RuntimeException("Failed to parse message from " + clientsBySocket.get(webSocket).getID() + ".", e)));
+			logger.warn(LogMessage.fromException(new RuntimeException("Failed to parse message from " + clientsBySocket.get(webSocket).getID() + ".", e)));
 			return;
 		}
 
@@ -125,7 +125,7 @@ public abstract class SocketServer extends WebSocketServer {
 			socketResponse = (SocketResponse) selectedMethod.invoke(this, webSocket, selectedChannel.parsingMode().parse.apply(content));
 		} catch (Exception e) {
 			send(webSocket, SocketResponse.INTERNAL_ERROR.channel("ERROR"));
-			logger.error(Log.fromException(new RuntimeException("An internal error occurred.", e)));
+			logger.error(LogMessage.fromException(new RuntimeException("An internal error occurred.", e)));
 			return;
 		}
 

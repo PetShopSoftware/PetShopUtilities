@@ -8,6 +8,7 @@ public enum Level {
 	DEBUG("\033[38;5;51m"),
 	;
 
+	public static final String RESET = "\033[0m";
 	private final String color;
 
 	Level(String color) {

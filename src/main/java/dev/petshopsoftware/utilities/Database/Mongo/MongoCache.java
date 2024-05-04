@@ -25,7 +25,7 @@ public class MongoCache {
 		this.duration = duration;
 		this.unit = unit;
 		this.logger = Logger.get("cache-" + id);
-		this.logger.level(Level.INFO);
+		this.logger.setLevel(Level.INFO);
 		Runtime.getRuntime().addShutdownHook(new Thread(this::shutdown));
 		CACHES.put(id, this);
 		logger.info("Cache initialized successfully for collection " + id + ".");

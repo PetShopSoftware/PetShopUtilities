@@ -3,40 +3,42 @@ package dev.petshopsoftware.utilities.Logging;
 import java.io.*;
 import java.nio.file.Paths;
 import java.text.SimpleDateFormat;
-import java.util.*;
+import java.util.Date;
+import java.util.List;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentLinkedDeque;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 public class Logger {
-	public static final Map<String, Logger> LOGGERS = new HashMap<>();
-	public static final LinkedList<Log> LOG_HISTORY = new LinkedList<>();
-	private static final List<LogHandler> GLOBAL_HANDLERS = new ArrayList<>();
-	public static String LOGS_DIRECTORY = "logs";
-	public static String DEFAULT_FORMAT = "[%time%] [%level%] [%logger%] %message%";
+	public static final Map<String, Logger> LOGGERS = new ConcurrentHashMap<>();
+	private static final ConcurrentLinkedDeque<LogMessage> GLOBAL_HISTORY = new ConcurrentLinkedDeque<>();
+	private static final ConcurrentLinkedDeque<LogHandler> GLOBAL_HANDLERS = new ConcurrentLinkedDeque<>();
+	private static final ExecutorService EXECUTOR_SERVICE = Executors.newSingleThreadExecutor();
+	private static String DEFAULT_FORMAT = "[%time%] [%level%] [%logger%] %message%";
+	private static int HISTORY_LENGTH = 1000;
+	private static String LOGS_DIRECTORY = "logs";
 	private static BufferedWriter WRITER = null;
 
 	static {
-		File logsDirectory = new File(LOGS_DIRECTORY);
-		if (!logsDirectory.exists())
-			if (!logsDirectory.mkdirs())
+		StreamRedirect.redirect();
+		setupOutputFile();
+		Runtime.getRuntime().addShutdownHook(new Thread(() -> {
+			if (WRITER != null) {
 				try {
-					throw new IOException("Logs directory could not be created.");
+					WRITER.close();
 				} catch (IOException e) {
-					Logger.get("main").error(Log.fromException(e));
+					throw new RuntimeException("Could not close log file writer.", e);
 				}
-
-		String logFileName = new SimpleDateFormat("dd-MM-yyyy_HH-mm-ss").format(new Date(System.currentTimeMillis())) + ".log";
-		File file = new File(Paths.get(LOGS_DIRECTORY, logFileName).toUri());
-		if (!file.exists())
-			try {
-				if (!file.createNewFile()) throw new IOException("Log file could not be created.");
-				WRITER = new BufferedWriter(new FileWriter(file));
-			} catch (IOException e) {
-				Logger.get("main").error(Log.fromException(e));
 			}
+			EXECUTOR_SERVICE.close();
+		}));
 	}
 
 	private final String id;
-	private final LinkedList<Log> logs = new LinkedList<>();
-	private final List<LogHandler> handlers = new ArrayList<>();
+	private final ConcurrentLinkedDeque<LogMessage> history = new ConcurrentLinkedDeque<>();
+	private final ConcurrentLinkedDeque<LogHandler> handlers = new ConcurrentLinkedDeque<>();
 	private String format;
 	private Level level;
 
@@ -65,7 +67,7 @@ public class Logger {
 		return logger;
 	}
 
-	public static List<LogHandler> getGlobalHandlers() {
+	public static ConcurrentLinkedDeque<LogHandler> getGlobalHandlers() {
 		return GLOBAL_HANDLERS;
 	}
 
@@ -73,36 +75,102 @@ public class Logger {
 		GLOBAL_HANDLERS.addAll(List.of(handlers));
 	}
 
-	synchronized public void log(Log message) {
-		for (LogHandler handler : GLOBAL_HANDLERS)
-			message = handler.preLog(message);
-		for (LogHandler handler : handlers)
-			message = handler.preLog(message);
+	public static String getLogsDirectory() {
+		return LOGS_DIRECTORY;
+	}
 
-		LOG_HISTORY.add(message);
-		logs.add(message);
+	public static void setLogsDirectory(String logsDirectory) {
+		LOGS_DIRECTORY = logsDirectory;
+		EXECUTOR_SERVICE.submit(Logger::setupOutputFile);
+	}
 
+	public static ConcurrentLinkedDeque<LogMessage> getGlobalHistory() {
+		return GLOBAL_HISTORY;
+	}
+
+	public static int getHistoryLength() {
+		return HISTORY_LENGTH;
+	}
+
+	public static void setHistoryLength(int historyLength) {
+		HISTORY_LENGTH = historyLength;
+	}
+
+	public static String getDefaultFormat() {
+		return DEFAULT_FORMAT;
+	}
+
+	public static void setDefaultFormat(String defaultFormat) {
+		DEFAULT_FORMAT = defaultFormat;
+	}
+
+	protected static void setupOutputFile() {
 		if (WRITER != null) {
 			try {
-				WRITER.write(message.toString());
-				WRITER.newLine();
-				WRITER.flush();
+				WRITER.close();
 			} catch (IOException e) {
-				this.error(Log.fromException(new RuntimeException("Could not write to log file.")));
+				throw new RuntimeException(e);
 			}
+			WRITER = null;
 		}
+		if (LOGS_DIRECTORY == null) return;
+		File logsDirectory = new File(LOGS_DIRECTORY);
+		if (!logsDirectory.exists())
+			if (!logsDirectory.mkdirs())
+				try {
+					throw new IOException("Logs directory could not be created.");
+				} catch (IOException e) {
+					Logger.get("main").error(LogMessage.fromException(e));
+				}
 
-		PrintStream printStream;
-		if (message.getLevel() == Level.ERROR || message.getLevel() == Level.FATAL)
-			printStream = System.err;
-		else printStream = System.out;
-		if (message.getLevel().includes(this.level))
-			printStream.println(message.colored());
+		String logFileName = new SimpleDateFormat("dd-MM-yyyy_HH-mm-ss").format(new Date(System.currentTimeMillis())) + ".log";
+		File file = new File(Paths.get(LOGS_DIRECTORY, logFileName).toUri());
+		if (!file.exists())
+			try {
+				if (!file.createNewFile()) throw new IOException("Log file could not be created.");
+				WRITER = new BufferedWriter(new FileWriter(file));
+			} catch (IOException e) {
+				throw new RuntimeException(e);
+			}
+	}
+
+	public void log(final LogMessage logMessage) {
+		LogMessage message = logMessage;
+		for (LogHandler handler : GLOBAL_HANDLERS)
+			message = handler.preLog(message);
+		for (LogHandler handler : handlers)
+			message = handler.preLog(message);
+
+		if (GLOBAL_HISTORY.size() < HISTORY_LENGTH) GLOBAL_HISTORY.add(message);
+		if (history.size() < HISTORY_LENGTH) history.add(message);
+
+		if (message.getLevel().includes(this.level)) {
+			PrintStream printStream;
+			if (message.getLevel() == Level.ERROR || message.getLevel() == Level.FATAL)
+				printStream = System.err;
+			else printStream = System.out;
+			if (printStream instanceof StreamRedirect.RedirectedPrintStream redirectedPrintStream)
+				redirectedPrintStream.printMessage(message);
+			else printStream.println(message.colored());
+		}
 
 		for (LogHandler handler : GLOBAL_HANDLERS)
 			handler.postLog(message);
 		for (LogHandler handler : handlers)
 			handler.postLog(message);
+
+		LogMessage finalMessage = message;
+		EXECUTOR_SERVICE.submit(() -> {
+			if (WRITER != null) {
+				try {
+					WRITER.write(finalMessage.toString());
+					WRITER.newLine();
+					WRITER.flush();
+				} catch (IOException e) {
+					this.error(LogMessage.fromException(new RuntimeException("Could not write to log file.")));
+				}
+			}
+		});
 	}
 
 	public void log(Level level, String message, String format) {
@@ -113,43 +181,83 @@ public class Logger {
 		log(level, message, format);
 	}
 
-	public Log message(Level level, String message, String format) {
-		return new Log(id, level, message, System.currentTimeMillis(), format);
+	public void log(Level level, Throwable throwable, String format) {
+		log(level, LogMessage.fromException(throwable), format);
+	}
+
+	public void log(Level level, Throwable throwable) {
+		log(level, LogMessage.fromException(throwable));
+	}
+
+	public LogMessage message(Level level, String message, String format) {
+		return new LogMessage(id, level, message, System.currentTimeMillis(), format);
+	}
+
+	public LogMessage message(Level level, String message) {
+		return new LogMessage(id, level, message, System.currentTimeMillis(), format);
+	}
+
+	public LogMessage message(Level level, Throwable throwable, String format) {
+		return message(level, LogMessage.fromException(throwable), format);
+	}
+
+	public LogMessage message(Level level, Throwable throwable) {
+		return message(level, LogMessage.fromException(throwable), format);
 	}
 
 	public void fatal(String message) {
 		log(Level.FATAL, message);
 	}
 
+	public void fatal(Throwable throwable) {
+		fatal(LogMessage.fromException(throwable));
+	}
+
 	public void error(String message) {
 		log(Level.ERROR, message);
+	}
+
+	public void error(Throwable throwable) {
+		error(LogMessage.fromException(throwable));
 	}
 
 	public void warn(String message) {
 		log(Level.WARN, message);
 	}
 
+	public void warn(Throwable throwable) {
+		warn(LogMessage.fromException(throwable));
+	}
+
 	public void info(String message) {
 		log(Level.INFO, message);
+	}
+
+	public void info(Throwable throwable) {
+		info(LogMessage.fromException(throwable));
 	}
 
 	public void debug(String message) {
 		log(Level.DEBUG, message);
 	}
 
+	public void debug(Throwable throwable) {
+		debug(LogMessage.fromException(throwable));
+	}
+
 	public String getID() {
 		return id;
 	}
 
-	public LinkedList<Log> getLogs() {
-		return logs;
+	public ConcurrentLinkedDeque<LogMessage> getHistory() {
+		return history;
 	}
 
 	public String getFormat() {
 		return format;
 	}
 
-	public void format(String format) {
+	public void setFormat(String format) {
 		this.format = format;
 	}
 
@@ -157,16 +265,16 @@ public class Logger {
 		return level;
 	}
 
-	public void level(Level level) {
+	public void setLevel(Level level) {
 		this.level = level;
 	}
 
-	public List<LogHandler> getHandlers() {
+	public ConcurrentLinkedDeque<LogHandler> getHandlers() {
 		return handlers;
 	}
 
-	public Logger handler(LogHandler handler) {
-		handlers.add(handler);
+	public Logger handlers(LogHandler... handlers) {
+		this.handlers.addAll(List.of(handlers));
 		return this;
 	}
 }

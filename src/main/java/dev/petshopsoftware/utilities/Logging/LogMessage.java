@@ -7,7 +7,7 @@ import java.io.StringWriter;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 
-public class Log implements JSON {
+public class LogMessage implements JSON, Cloneable {
 	public static final SimpleDateFormat DATE_FORMAT = new SimpleDateFormat("dd/MM/yyyy HH:mm:ss");
 
 	private final String logger;
@@ -16,7 +16,7 @@ public class Log implements JSON {
 	private String message;
 	private String format;
 
-	public Log(String logger, Level level, String message, long timestamp, String format) {
+	public LogMessage(String logger, Level level, String message, long timestamp, String format) {
 		this.logger = logger;
 		this.level = level;
 		this.message = message;
@@ -29,7 +29,8 @@ public class Log implements JSON {
 		PrintWriter pw = new PrintWriter(sw);
 		throwable.printStackTrace(pw);
 		pw.close();
-		return sw.toString();
+		String string = sw.toString();
+		return string;
 	}
 
 	@Override
@@ -43,7 +44,7 @@ public class Log implements JSON {
 	}
 
 	public String colored() {
-		return level.getColor() + this + "\033[0m";
+		return level.getColor() + this + Level.RESET;
 	}
 
 	public String getLogger() {
@@ -58,7 +59,7 @@ public class Log implements JSON {
 		return level;
 	}
 
-	public Log level(Level level) {
+	public LogMessage level(Level level) {
 		this.level = level;
 		return this;
 	}
@@ -67,7 +68,7 @@ public class Log implements JSON {
 		return message;
 	}
 
-	public Log message(String message) {
+	public LogMessage message(String message) {
 		this.message = message;
 		return this;
 	}
@@ -76,7 +77,7 @@ public class Log implements JSON {
 		return format;
 	}
 
-	public Log format(String format) {
+	public LogMessage format(String format) {
 		this.format = format;
 		return this;
 	}
@@ -85,4 +86,8 @@ public class Log implements JSON {
 		Logger.get(logger).log(this);
 	}
 
+	@Override
+	protected Object clone() throws CloneNotSupportedException {
+		return super.clone();
+	}
 }
