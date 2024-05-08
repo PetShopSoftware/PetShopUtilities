@@ -6,7 +6,7 @@
 
     <groupId>dev.petshopsoftware</groupId>
     <artifactId>petshoputilities</artifactId>
-    <version>1.23</version>
+    <version>1.24</version>
 
     <properties>
         <maven.compiler.source>20</maven.compiler.source>
@@ -69,6 +69,11 @@
             <groupId>com.google.protobuf</groupId>
             <artifactId>protobuf-java</artifactId>
             <version>3.25.1</version>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.httpcomponents</groupId>
+            <artifactId>httpclient</artifactId>
+            <version>4.5.14</version>
         </dependency>
     </dependencies>
 </project>

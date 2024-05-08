@@ -3,95 +3,110 @@ package dev.petshopsoftware.utilities.HTTP.Request;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.google.protobuf.MessageLite;
 import dev.petshopsoftware.utilities.HTTP.Server.HTTPMethod;
+import org.apache.http.HttpHost;
+import org.apache.http.HttpResponse;
+import org.apache.http.client.methods.*;
+import org.apache.http.conn.ssl.SSLConnectionSocketFactory;
+import org.apache.http.entity.ByteArrayEntity;
+import org.apache.http.impl.client.CloseableHttpClient;
+import org.apache.http.impl.client.HttpClientBuilder;
+import org.apache.http.impl.client.HttpClients;
+import org.apache.http.ssl.SSLContextBuilder;
+import org.apache.http.util.EntityUtils;
 
-import javax.net.ssl.*;
 import java.io.IOException;
-import java.io.OutputStream;
-import java.net.*;
+import java.net.URI;
+import java.net.URISyntaxException;
+import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
-import java.security.*;
-import java.security.cert.CertificateException;
+import java.security.KeyStore;
 import java.security.cert.X509Certificate;
-import java.util.HashMap;
-import java.util.Iterator;
-import java.util.Map;
+import java.util.*;
 
 public class Request {
 	private final Map<String, X509Certificate> certificates = new HashMap<>();
-	private final HttpURLConnection connection;
+	private final Map<String, List<String>> headers = new HashMap<>();
+	private String url;
+	private String proxy;
+	private HTTPMethod method = null;
 	private boolean trustAllCerts = false;
 	private byte[] body = null;
 
-	public Request(String url, String proxy) {
-		try {
-			URL connectionURL = new URI(url).toURL();
-			if (proxy == null)
-				connection = (HttpURLConnection) connectionURL.openConnection();
-			else {
-				String[] proxyParts = proxy.split(":");
-				connection = (HttpURLConnection) connectionURL.openConnection(
-						new Proxy(
-								Proxy.Type.HTTP,
-								new InetSocketAddress(proxyParts[0], Integer.parseInt(proxyParts[1]))
-						)
-				);
-			}
-		} catch (Exception e) {
-			throw new RuntimeException(e);
-		}
+	public Request(String url) {
+		this.url(url);
 	}
 
-	public Request(String url) {
-		this(url, null);
+	public Request url(String url) {
+		this.url = url;
+		return this;
+	}
+
+	public Request proxy(String proxy) {
+		this.proxy = proxy;
+		return this;
 	}
 
 	public Request method(HTTPMethod method) {
-		try {
-			connection.setRequestMethod(method.name());
-		} catch (ProtocolException e) {
-			throw new RuntimeException(e);
-		}
+		this.method = method;
+		return this;
+	}
+
+	public Request trustAllCerts(boolean override) {
+		this.trustAllCerts = override;
 		return this;
 	}
 
 	public Request trustAllCerts() {
-		if (!(connection instanceof HttpsURLConnection))
-			return this;
-		this.trustAllCerts = true;
-		return this;
+		return this.trustAllCerts(true);
 	}
 
 	public Request certificate(String alias, X509Certificate certificate) {
-		if (!(connection instanceof HttpsURLConnection))
-			throw new RuntimeException("Certificates are not supported by HttpURLConnection.");
 		this.certificates.put(alias, certificate);
 		return this;
 	}
 
-
-	public Request header(String key, String value) {
-		connection.setRequestProperty(key, value);
+	public Request header(String key, String value, boolean replace) {
+		if (!this.headers.containsKey(key.toLowerCase()))
+			this.headers.put(key.toLowerCase(), new LinkedList<>());
+		List<String> headerValues = this.headers.get(key.toLowerCase());
+		if (replace) headerValues.clear();
+		headerValues.add(value);
 		return this;
 	}
 
+	public Request header(String key, String value) {
+		return this.header(key, value, true);
+	}
+
+	public Request removeHeader(String key, int index) {
+		if (index < 0)
+			this.headers.remove(key.toLowerCase());
+		else {
+			List<String> headerValues = this.headers.get(key.toLowerCase());
+			if (headerValues != null)
+				headerValues.remove(index);
+		}
+		return this;
+	}
+
+	public Request removeHeader(String key) {
+		return this.removeHeader(key, -1);
+	}
+
 	public Request cookie(String key, String value) {
-		String cookies = connection.getRequestProperty("cookie");
-		if (cookies == null) cookies = "";
-		else cookies += "; ";
-		cookies += key + "=" + value;
-		return header("cookie", cookies);
+		return this.header("cookie", key + "=" + value);
 	}
 
 	public Request userAgent(String userAgent) {
-		return header("User-Agent", userAgent);
+		return this.header("User-Agent", userAgent);
 	}
 
 	public Request contentType(String contentType) {
-		return header("Content-Type", contentType);
+		return this.header("Content-Type", contentType);
 	}
 
 	public Request authentication(String credential) {
-		return header("Authorization", credential);
+		return this.header("Authorization", credential);
 	}
 
 	public Request authentication(String method, String credential) {
@@ -99,21 +114,20 @@ public class Request {
 	}
 
 	public Request body(byte[] body) {
-		connection.setDoOutput(true);
 		this.body = body;
 		return this;
 	}
 
 	public Request body(String body) {
-		return body(body.getBytes());
+		return this.body(body.getBytes());
 	}
 
 	public Request body(JsonNode body) {
-		return body(body.toPrettyString());
+		return this.body(body.toPrettyString());
 	}
 
 	public Request body(MessageLite message) {
-		return body(message.toByteArray());
+		return this.body(message.toByteArray());
 	}
 
 	public Request form(JsonNode form) {
@@ -126,77 +140,81 @@ public class Request {
 			postData.append(URLEncoder.encode(field.getValue().asText(), StandardCharsets.UTF_8));
 		}
 		byte[] postDataBytes = postData.toString().getBytes(StandardCharsets.UTF_8);
-		body(postDataBytes);
+		this.body(postDataBytes);
 		return this;
 	}
 
-	public HttpURLConnection getConnection() {
-		return connection;
+	private CloseableHttpClient createHTTPClient() throws Exception {
+		SSLContextBuilder sslBuilder = SSLContextBuilder.create();
+		if (this.trustAllCerts)
+			sslBuilder.loadTrustMaterial(null, (chain, authType) -> true);
+		else if (!certificates.isEmpty()) {
+			KeyStore keyStore = KeyStore.getInstance(KeyStore.getDefaultType());
+			keyStore.load(null, null);
+			for (Map.Entry<String, X509Certificate> entry : certificates.entrySet())
+				keyStore.setCertificateEntry(entry.getKey(), entry.getValue());
+			sslBuilder.loadKeyMaterial(keyStore, null);
+		}
+
+		HttpClientBuilder clientBuilder = HttpClients.custom()
+				.setSSLSocketFactory(new SSLConnectionSocketFactory(sslBuilder.build()));
+		if (proxy != null) {
+			String[] proxyParts = proxy.split(":");
+			clientBuilder.setProxy(new HttpHost(proxyParts[0], Integer.parseInt(proxyParts[1])));
+		}
+		return clientBuilder.build();
 	}
 
-	private void configureSSLContext() throws RequestException {
-		if (!(connection instanceof HttpsURLConnection))
-			return;
-
-		try {
-			SSLContext sslContext = SSLContext.getInstance("TLS");
-			KeyManager[] keyManagers = null;
-			if (!certificates.isEmpty()) {
-				KeyStore keyStore = KeyStore.getInstance(KeyStore.getDefaultType());
-				keyStore.load(null, null);
-				for (Map.Entry<String, X509Certificate> entry : certificates.entrySet())
-					keyStore.setCertificateEntry(entry.getKey(), entry.getValue());
-				KeyManagerFactory kmf = KeyManagerFactory.getInstance(KeyManagerFactory.getDefaultAlgorithm());
-				kmf.init(keyStore, null);
-				keyManagers = kmf.getKeyManagers();
-			}
-
-			if (trustAllCerts) {
-				TrustManager[] trustAllManagers = new TrustManager[]{
-						new X509TrustManager() {
-							public void checkClientTrusted(X509Certificate[] chain, String authType) {
-							}
-
-							public void checkServerTrusted(X509Certificate[] chain, String authType) {
-							}
-
-							public X509Certificate[] getAcceptedIssuers() {
-								return new X509Certificate[0];
-							}
-						}
-				};
-				sslContext.init(keyManagers, trustAllManagers, new SecureRandom());
-			} else {
-				TrustManagerFactory tmf = TrustManagerFactory.getInstance(TrustManagerFactory.getDefaultAlgorithm());
-				tmf.init((KeyStore) null);
-				sslContext.init(keyManagers, tmf.getTrustManagers(), new SecureRandom());
-			}
-
-			HttpsURLConnection httpsConn = (HttpsURLConnection) connection;
-			httpsConn.setSSLSocketFactory(sslContext.getSocketFactory());
-			httpsConn.setHostnameVerifier((hostname, session) -> true);
-		} catch (KeyStoreException | NoSuchAlgorithmException | CertificateException | UnrecoverableKeyException |
-				 KeyManagementException | IOException e) {
-			throw new RuntimeException("Failed to set up SSL context.", e);
+	private HttpRequestBase createHTTPRequest(URI uri) {
+		HttpRequestBase httpRequest;
+		switch (this.method) {
+			case GET -> httpRequest = new HttpGet(uri);
+			case POST -> httpRequest = new HttpPost(uri);
+			case PUT -> httpRequest = new HttpPut(uri);
+			case PATCH -> httpRequest = new HttpPatch(uri);
+			case DELETE -> httpRequest = new HttpDelete(uri);
+			default -> throw new RuntimeException("HTTPMethod " + this.method + "is not supported.");
 		}
+		return httpRequest;
 	}
 
 	public Response execute() throws RequestException {
-		configureSSLContext();
-		if (this.body != null) {
-			try (OutputStream os = connection.getOutputStream()) {
-				os.write(body, 0, body.length);
-				os.flush();
-			} catch (Exception e) {
-				throw new RuntimeException(e);
-			}
-		}
+		URI uri;
 		try {
-			connection.connect();
-		} catch (IOException e) {
-			throw new RequestException(e);
+			uri = new URI(this.url);
+		} catch (URISyntaxException e) {
+			throw new RuntimeException(e);
 		}
-		Response response = new Response(this);
+
+		CloseableHttpClient client;
+		try {
+			client = createHTTPClient();
+		} catch (Exception e) {
+			throw new RuntimeException("Failed to create HTTP Client", e);
+		}
+
+		HttpRequestBase httpRequest = createHTTPRequest(uri);
+
+		this.headers.forEach((key, values) -> values.forEach(value -> httpRequest.addHeader(key, value)));
+		if (httpRequest instanceof HttpEntityEnclosingRequestBase && this.body != null)
+			((HttpEntityEnclosingRequestBase) httpRequest).setEntity(new ByteArrayEntity(this.body));
+
+		HttpResponse httpResponse;
+		try {
+			httpResponse = client.execute(httpRequest);
+		} catch (IOException e) {
+			throw new RuntimeException("Failed to execute HTTP Request to " + uri + ".", e);
+		}
+
+		Response response = new Response(client, httpRequest, httpResponse);
+
+		try {
+			EntityUtils.consume(httpResponse.getEntity());
+			client.close();
+		} catch (IOException e) {
+			throw new RuntimeException("Failed to finalize HTTP Connection.", e);
+		}
+
 		if (response.statusCode() < 200 || response.statusCode() > 399)
 			throw new RequestException(response);
 		return response;

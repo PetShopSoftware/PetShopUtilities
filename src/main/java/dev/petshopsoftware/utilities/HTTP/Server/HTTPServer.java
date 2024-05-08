@@ -2,6 +2,7 @@ package dev.petshopsoftware.utilities.HTTP.Server;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.sun.net.httpserver.*;
+import dev.petshopsoftware.utilities.JSON.ObjectBuilder;
 import dev.petshopsoftware.utilities.Logging.LogMessage;
 import dev.petshopsoftware.utilities.Logging.Logger;
 import dev.petshopsoftware.utilities.Util.InputChecker.InvalidInputException;
@@ -19,6 +20,7 @@ import java.io.OutputStream;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.net.InetSocketAddress;
+import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.security.KeyStore;
 import java.security.SecureRandom;
@@ -46,6 +48,7 @@ public class HTTPServer {
 		} catch (IOException e) {
 			throw new RuntimeException(e);
 		}
+		Runtime.getRuntime().addShutdownHook(new Thread(this::stop));
 		this.id = (subdomain == null ? RandomUtil.generateIdentifier(8) : subdomain);
 		this.subdomain = subdomain;
 		this.domain = domain;
@@ -58,8 +61,8 @@ public class HTTPServer {
 		this(subdomain, domain, port, true);
 	}
 
-	public HTTPServer(int port) {
-		this(null, null, port, true);
+	public HTTPServer(int port, boolean ssl) {
+		this(null, null, port, ssl);
 	}
 
 	protected void init() {
@@ -117,7 +120,7 @@ public class HTTPServer {
 			if (response == null)
 				response = (HTTPResponse) routeData.getV3().invoke(null, data);
 		} catch (NameNotFoundException e) {
-			response = getNotFound();
+			response = getNotFound(exchange);
 		} catch (JsonProcessingException e) {
 			response = getBadRequest(routeData.getV2());
 		} catch (Exception e) {
@@ -332,8 +335,14 @@ public class HTTPServer {
 		return routes;
 	}
 
-	public HTTPResponse getNotFound() {
-		return HTTPResponse.NOT_FOUND;
+	public HTTPResponse getNotFound(HttpExchange exchange) {
+		URI uri = exchange.getRequestURI();
+		String routeBuilder = exchange.getRequestMethod() + " " + uri.getPath();
+		return HTTPResponse.NOT_FOUND.data(
+				new ObjectBuilder()
+						.with("path", routeBuilder)
+						.build()
+		);
 	}
 
 	public HTTPResponse getBadRequest(Route route) {
