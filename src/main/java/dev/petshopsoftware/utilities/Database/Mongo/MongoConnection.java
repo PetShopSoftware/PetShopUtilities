@@ -178,7 +178,7 @@ public class MongoConnection {
 			}
 		}
 
-		logger.info("Finished setting up " + indexes.length + " and updating index(es) in collection " + collectionID + ".");
+		logger.info("Finished setting up and updating " + indexes.length + " index(es) in collection " + collectionID + ".");
 	}
 
 	private String generateIndexName(MongoInfo.MongoIndexData data) {
