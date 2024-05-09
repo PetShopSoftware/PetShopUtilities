@@ -1,6 +1,5 @@
 package dev.petshopsoftware.utilities.HTTP.Server;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
 import com.sun.net.httpserver.*;
 import dev.petshopsoftware.utilities.JSON.ObjectBuilder;
 import dev.petshopsoftware.utilities.Logging.LogMessage;
@@ -9,24 +8,27 @@ import dev.petshopsoftware.utilities.Util.InputChecker.InvalidInputException;
 import dev.petshopsoftware.utilities.Util.ParsingMode;
 import dev.petshopsoftware.utilities.Util.RandomUtil;
 import dev.petshopsoftware.utilities.Util.ReflectionUtil;
+import dev.petshopsoftware.utilities.Util.StringUtils;
 import dev.petshopsoftware.utilities.Util.Types.Pair;
 import dev.petshopsoftware.utilities.Util.Types.Quad;
+import org.apache.http.impl.EnglishReasonPhraseCatalog;
 
 import javax.naming.NameNotFoundException;
 import javax.net.ssl.*;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.io.UnsupportedEncodingException;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.net.InetSocketAddress;
 import java.net.URI;
+import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
 import java.security.KeyStore;
 import java.security.SecureRandom;
 import java.security.cert.X509Certificate;
 import java.util.*;
-import java.util.stream.Collectors;
 
 public class HTTPServer {
 	private final String id;
@@ -86,73 +88,116 @@ public class HTTPServer {
 	}
 
 	protected void handleRequest(HttpExchange exchange) {
-		String requestID = UUID.randomUUID().toString();
-		HTTPMethod method = HTTPMethod.valueOf(exchange.getRequestMethod());
-		String path = exchange.getRequestURI().toString();
-		Quad<String, Route, Method, Map<String, String>> routeData = null;
+		String requestID = RandomUtil.generateIdentifier(32);
+		HTTPData data = null;
 		HTTPResponse response = null;
-
-		exchange.getResponseHeaders().add("Access-Control-Allow-Origin", "*");
-		exchange.getResponseHeaders().add("Access-Control-Allow-Methods", "*");
-		exchange.getResponseHeaders().add("Access-Control-Allow-Headers", "*");
-		exchange.getResponseHeaders().add("Access-Control-Max-Age", "86400");
-		if (method == HTTPMethod.OPTIONS) {
+		try {
+			String path = exchange.getRequestURI().getPath();
+			HTTPMethod method;
 			try {
-				send(exchange, 200, new byte[0]);
+				method = HTTPMethod.valueOf(exchange.getRequestMethod());
+			} catch (IllegalArgumentException e) {
+				method = null;
+			}
+			Map<String, String> queryParams;
+			try {
+				queryParams = parseQuery(exchange.getRequestURI().getQuery());
+			} catch (UnsupportedEncodingException e) {
+				queryParams = null;
+			}
+			Route route;
+			Method invoked;
+			Map<String, String> pathParams;
+			try {
+				Quad<String, Route, Method, Map<String, String>> resolvedRoute = resolveRoute(method, path);
+				route = resolvedRoute.getV2();
+				invoked = resolvedRoute.getV3();
+				pathParams = resolvedRoute.getV4();
+			} catch (NameNotFoundException e) {
+				route = null;
+				invoked = null;
+				pathParams = null;
+			}
+			byte[] rawBody;
+			try {
+				rawBody = readBody(exchange);
 			} catch (IOException e) {
-				logger.error(LogMessage.fromException(new RuntimeException("Could not send OPTIONS response to client.", e)));
+				rawBody = null;
 			}
-			return;
-		}
-
-		try {
-			routeData = resolveRoute(method, path);
-			HTTPData data = new HTTPData(method, requestID, routeData.getV1(), routeData.getV2(), exchange, this, routeData.getV4(), readBody(exchange));
+			data = new HTTPData(exchange, this, requestID, method, path, route, pathParams, queryParams, rawBody);
+			logger.info("IN: " + data.method() + " " + data.path() + " from " + data.ip() + ".");
 			logger.debug(data.toString());
-			for (HTTPHandler handler : handlers) {
-				if (!handler.matchesRoute(data, routeData.getV2(), routeData.getV3())) continue;
-				HTTPResponse handlerResponse = handler.handle(data, routeData.getV3());
-				if (handlerResponse != null) {
-					response = handlerResponse;
-					break;
-				}
-			}
-			if (response == null)
-				response = (HTTPResponse) routeData.getV3().invoke(null, data);
-		} catch (NameNotFoundException e) {
-			response = getNotFound(exchange);
-		} catch (JsonProcessingException e) {
-			response = getBadRequest(routeData.getV2());
-		} catch (Exception e) {
-			if (e.getCause() instanceof InvalidInputException)
-				response = getBadRequest(routeData == null ? null : routeData.getV2()).message(e.getCause().getMessage());
-			else if (e.getCause() instanceof HTTPResponseException)
-				response = ((HTTPResponseException) e.getCause()).getResponse();
+			if (data.method() == null)
+				response = getInvalidMethod(data);
+			else if (data.queryParams() == null)
+				response = getInvalidQuery(data);
+			else if (data.route() == null || invoked == null || data.pathParams() == null)
+				response = getNotFound(data);
+			else if (data.bodyParseError != null)
+				response = getInvalidBody(data);
+			else if (data.method() == HTTPMethod.OPTIONS)
+				response = getOptionsResponse(data);
 			else {
-				response = getInternalError(routeData == null ? null : routeData.getV2());
-				logger.error(LogMessage.fromException(new RuntimeException("An internal error occurred.", e)));
+				for (HTTPHandler handler : handlers) {
+					if (!handler.matchesRoute(data, route, invoked)) continue;
+					HTTPResponse handlerResponse = handler.handle(data, invoked);
+					if (handlerResponse != null) {
+						response = handlerResponse;
+						break;
+					}
+				}
+				if (response == null)
+					try {
+						response = (HTTPResponse) invoked.invoke(null, data);
+					} catch (Exception e) {
+						if (e.getCause() instanceof InvalidInputException)
+							response = HTTPResponse.BAD_REQUEST.message(e.getCause().getMessage());
+						else if (e.getCause() instanceof HTTPResponseException)
+							response = ((HTTPResponseException) e.getCause()).getResponse();
+						else throw new RuntimeException("An internal error occured.", e);
+					}
 			}
+			if (response == null) throw new Exception("Failed to assign request response.");
+		} catch (Exception e) {
+			Exception ex = e;
+			if (data == null) ex = new RuntimeException("Failed to capture request data.", e);
+			logger.error(new RuntimeException("An exception occurred while handling request.", ex));
+			response = getInternalError(null);
 		}
+		response.header("Access-Control-Allow-Origin", "*")
+				.header("Access-Control-Allow-Methods", "*")
+				.header("Access-Control-Allow-Headers", "*")
+				.header("Access-Control-Max-Age", "86400")
+				.header("X-Request-ID", requestID);
 		try {
-			byte[] bytes;
-			if (response.getParsingMode() == ParsingMode.JSON) {
-				exchange.getResponseHeaders().set("Content-Type", "application/json");
-				bytes = response.toString().getBytes(StandardCharsets.UTF_8);
-			} else if (response.getParsingMode() == ParsingMode.RAW)
-				bytes = (byte[]) response.getData();
-			else bytes = ((String) response.getData()).getBytes(StandardCharsets.UTF_8);
-			send(exchange, response.getCode(), bytes);
-			logger.debug(requestID + " Response " + response.getCode() + "\n"
-					+ exchange.getResponseHeaders().entrySet().stream().map(entry -> entry.getKey() + ": " + String.join(", ", entry.getValue())).collect(Collectors.joining("\n")) + "\n"
-					+ (response.getParsingMode() == ParsingMode.RAW ? HexFormat.of().formatHex(bytes) : new String(bytes)));
+			byte[] bytes = sendResponse(exchange, response);
+			if (data != null) logger.info("OUT: " + data.method() + " " + data.path() + " to " + data.ip() + ".");
+			else logger.warn("OUT: Failed to capture request data for " + requestID + ".");
+			StringBuilder builder = new StringBuilder();
+			builder.append(exchange.getResponseCode()).append(" ").append(EnglishReasonPhraseCatalog.INSTANCE.getReason(exchange.getResponseCode(), Locale.ENGLISH)).append("\n");
+			builder.append("REQUEST ID: ").append(requestID).append("\n");
+			if (!exchange.getRequestHeaders().isEmpty()) {
+				builder.append("Headers:\n");
+				StringBuilder headerBuilder = new StringBuilder();
+				exchange.getResponseHeaders().forEach((key, values) -> values.forEach(value -> headerBuilder.append(key).append(": ").append(value).append("\n")));
+				builder.append(StringUtils.padLeft(headerBuilder.toString(), 2)).append("\n");
+			}
+			if (bytes.length > 0) {
+				builder.append("Body:\n");
+				StringBuilder bodyBuilder = new StringBuilder();
+				if (response.getParsingMode() == ParsingMode.RAW)
+					bodyBuilder.append(HexFormat.of().formatHex(bytes));
+				else bodyBuilder.append(new String(bytes));
+				builder.append(StringUtils.padLeft(bodyBuilder.toString(), 2));
+			}
+			logger.debug(builder.toString());
 		} catch (IOException e) {
-			logger.error(LogMessage.fromException(new RuntimeException("Could not send response to client.", e)));
+			logger.error(new RuntimeException("Could not send response to client.", e));
 		}
 	}
 
 	protected Quad<String, Route, Method, Map<String, String>> resolveRoute(HTTPMethod method, String path) throws NameNotFoundException {
-		String deparameterizedPath = path.split("\\?")[0];
-		String[] pathSegments = deparameterizedPath.split("/");
+		String[] pathSegments = path.split("/");
 		for (String routeID : sortedRoutes) {
 			String[] routeIDParts = routeID.split(" ");
 			HTTPMethod routeMethod = HTTPMethod.valueOf(routeIDParts[0]);
@@ -177,7 +222,23 @@ public class HTTPServer {
 			Method route = routeData.getV2();
 			return new Quad<>(routeID.split(" ")[1], routeInfo, route, pathParams);
 		}
-		throw new NameNotFoundException("Could not find route " + method + " " + deparameterizedPath + ".");
+		throw new NameNotFoundException("Could not find route " + method + " " + path + ".");
+	}
+
+	protected Map<String, String> parseQuery(String query) throws UnsupportedEncodingException {
+		Map<String, String> result = new HashMap<>();
+		if (query == null || query.isEmpty()) {
+			return result;
+		}
+		String[] pairs = query.split("&");
+		for (String pair : pairs) {
+			int idx = pair.indexOf("=");
+			String key = idx > 0 ? URLDecoder.decode(pair.substring(0, idx), StandardCharsets.UTF_8) : pair;
+			String value = idx > 0 && pair.length() > idx + 1 ? URLDecoder.decode(pair.substring(idx + 1), StandardCharsets.UTF_8) : null;
+			result.put(key, value);
+		}
+		return result;
+
 	}
 
 	protected byte[] readBody(HttpExchange exchange) throws IOException {
@@ -185,10 +246,27 @@ public class HTTPServer {
 	}
 
 	protected void send(HttpExchange exchange, int code, byte[] bytes) throws IOException {
+		if (bytes == null) bytes = new byte[0];
 		exchange.sendResponseHeaders(code, bytes.length);
 		OutputStream os = exchange.getResponseBody();
 		os.write(bytes);
 		os.close();
+	}
+
+	protected byte[] sendResponse(HttpExchange exchange, HTTPResponse response) throws IOException {
+		byte[] bytes = null;
+		if (response.getParsingMode() == ParsingMode.RAW)
+			bytes = (byte[]) response.getData();
+		else if (response.getParsingMode() == ParsingMode.STRING)
+			bytes = ((String) response.getData()).getBytes(StandardCharsets.UTF_8);
+		else if (response.getParsingMode() == ParsingMode.JSON) {
+			bytes = response.toString().getBytes(StandardCharsets.UTF_8);
+			if (!response.getHeaders().containsKey("Content-Type"))
+				response.header("Content-Type", "application/json");
+		}
+		exchange.getResponseHeaders().putAll(response.getHeaders());
+		send(exchange, response.getCode(), bytes);
+		return bytes;
 	}
 
 	protected void sortRoutes() {
@@ -335,9 +413,9 @@ public class HTTPServer {
 		return routes;
 	}
 
-	public HTTPResponse getNotFound(HttpExchange exchange) {
-		URI uri = exchange.getRequestURI();
-		String routeBuilder = exchange.getRequestMethod() + " " + uri.getPath();
+	public HTTPResponse getNotFound(HTTPData data) {
+		URI uri = data.exchange().getRequestURI();
+		String routeBuilder = data.exchange().getRequestMethod() + " " + uri.getPath();
 		return HTTPResponse.NOT_FOUND.data(
 				new ObjectBuilder()
 						.with("path", routeBuilder)
@@ -345,13 +423,25 @@ public class HTTPServer {
 		);
 	}
 
-	public HTTPResponse getBadRequest(Route route) {
-		if (route != null && route.parsingMode() == ParsingMode.JSON)
+	public HTTPResponse getInvalidMethod(HTTPData data) {
+		return new HTTPResponse().code(405).message("Invalid HTTP method " + data.method() + ".");
+	}
+
+	public HTTPResponse getInvalidBody(HTTPData data) {
+		if (data.route() != null && data.route().parsingMode() == ParsingMode.JSON)
 			return HTTPResponse.INVALID_JSON;
 		return HTTPResponse.INVALID_BODY;
 	}
 
-	public HTTPResponse getInternalError(Route route) {
+	public HTTPResponse getInvalidQuery(HTTPData data) {
+		return HTTPResponse.BAD_REQUEST.message("Invalid query.");
+	}
+
+	public HTTPResponse getInternalError(HTTPData data) {
 		return HTTPResponse.INTERNAL_ERROR;
+	}
+
+	public HTTPResponse getOptionsResponse(HTTPData data) {
+		return new HTTPResponse(200, new byte[0]);
 	}
 }

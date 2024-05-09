@@ -1,6 +1,7 @@
 package dev.petshopsoftware.utilities.HTTP.Server;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.sun.net.httpserver.Headers;
 import dev.petshopsoftware.utilities.JSON.JSONResponse;
 import dev.petshopsoftware.utilities.Util.ParsingMode;
 
@@ -28,30 +29,29 @@ public class HTTPResponse extends JSONResponse {
 
 	@JsonIgnore
 	private final ParsingMode parsingMode;
+	@JsonIgnore
+	private final Headers headers;
 
-	public HTTPResponse(int code, String message, Object data, ParsingMode parsingMode) {
+	public HTTPResponse(Integer code, String message, Object data, ParsingMode parsingMode) {
 		super(code, message, data);
 		this.parsingMode = parsingMode;
+		this.headers = new Headers();
 	}
 
 	public HTTPResponse(int code, byte[] data) {
-		super(code, null, data);
-		this.parsingMode = ParsingMode.RAW;
+		this(code, null, data, ParsingMode.RAW);
 	}
 
 	public HTTPResponse(int code, String data) {
-		super(code, null, data);
-		this.parsingMode = ParsingMode.STRING;
+		this(code, null, data, ParsingMode.STRING);
 	}
 
 	public HTTPResponse(JSONResponse response) {
-		super(response.getCode(), response.getMessage(), response.getData());
-		this.parsingMode = ParsingMode.JSON;
+		this(response.getCode(), response.getMessage(), response.getData(), ParsingMode.JSON);
 	}
 
 	public HTTPResponse() {
-		super();
-		this.parsingMode = ParsingMode.JSON;
+		this(null, null, null, ParsingMode.JSON);
 	}
 
 	@Override
@@ -75,5 +75,14 @@ public class HTTPResponse extends JSONResponse {
 
 	public ParsingMode getParsingMode() {
 		return parsingMode;
+	}
+
+	public HTTPResponse header(String key, String value) {
+		this.headers.add(key, value);
+		return this;
+	}
+
+	public Headers getHeaders() {
+		return headers;
 	}
 }
