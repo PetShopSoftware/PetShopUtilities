@@ -9,6 +9,7 @@ import org.apache.http.client.methods.*;
 import org.apache.http.conn.ssl.SSLConnectionSocketFactory;
 import org.apache.http.entity.ByteArrayEntity;
 import org.apache.http.impl.client.CloseableHttpClient;
+import org.apache.http.impl.client.DefaultRedirectStrategy;
 import org.apache.http.impl.client.HttpClientBuilder;
 import org.apache.http.impl.client.HttpClients;
 import org.apache.http.ssl.SSLContextBuilder;
@@ -30,6 +31,7 @@ public class Request {
 	private String proxy;
 	private HTTPMethod method = null;
 	private boolean trustAllCerts = false;
+	private boolean disallowRedirects = false;
 	private byte[] body = null;
 
 	public Request(String url) {
@@ -58,6 +60,15 @@ public class Request {
 
 	public Request trustAllCerts() {
 		return this.trustAllCerts(true);
+	}
+
+	public Request disallowRedirects(boolean override) {
+		this.disallowRedirects = override;
+		return this;
+	}
+
+	public Request disallowRedirects() {
+		return this.disallowRedirects(true);
 	}
 
 	public Request certificate(String alias, X509Certificate certificate) {
@@ -161,6 +172,14 @@ public class Request {
 		if (proxy != null) {
 			String[] proxyParts = proxy.split(":");
 			clientBuilder.setProxy(new HttpHost(proxyParts[0], Integer.parseInt(proxyParts[1])));
+		}
+		if (this.disallowRedirects) {
+			clientBuilder.setRedirectStrategy(new DefaultRedirectStrategy() {
+				@Override
+				protected boolean isRedirectable(String method) {
+					return false;
+				}
+			});
 		}
 		return clientBuilder.build();
 	}
