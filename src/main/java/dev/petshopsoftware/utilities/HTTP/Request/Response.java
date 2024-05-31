@@ -5,7 +5,6 @@ import com.fasterxml.jackson.databind.JsonNode;
 import dev.petshopsoftware.utilities.JSON.JSON;
 import org.apache.http.Header;
 import org.apache.http.HttpResponse;
-import org.apache.http.NameValuePair;
 import org.apache.http.client.methods.HttpRequestBase;
 import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.util.EntityUtils;
@@ -14,6 +13,7 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.List;
+import java.util.stream.Collectors;
 
 public class Response {
 	private final CloseableHttpClient client;
@@ -118,20 +118,22 @@ public class Response {
 	public List<String> headers(String name) {
 		Header[] headers = response.getHeaders(name);
 		if (headers == null) return null;
-		return Arrays.stream(headers).map(NameValuePair::getName).toList();
+		return Arrays.stream(headers).map(Header::getValue).collect(Collectors.toList());
 	}
 
 	public String header(String name) {
 		List<String> headers = headers(name);
-		if (headers == null) return null;
+		if (headers == null || headers.isEmpty()) return null;
 		return headers.get(0);
 	}
 
 	public String cookie(String name) {
 		List<String> cookies = headers("set-cookie");
+		if (cookies == null || cookies.isEmpty()) return null;
 		for (String cookie : cookies) {
 			String[] cookieParts = cookie.split("; ")[0].split("=", 2);
-			return cookieParts[1];
+			if (cookieParts.length == 2 && cookieParts[0].equals(name))
+				return cookieParts[1];
 		}
 		return null;
 	}
