@@ -131,12 +131,12 @@ public class HTTPServer {
 				response = getInvalidMethod(data);
 			else if (data.queryParams() == null)
 				response = getInvalidQuery(data);
-			else if (data.route() == null || invoked == null || data.pathParams() == null)
-				response = getNotFound(data);
 			else if (data.bodyParseError != null)
 				response = getInvalidBody(data);
 			else if (data.method() == HTTPMethod.OPTIONS)
 				response = getOptionsResponse(data);
+			else if (data.route() == null || invoked == null || data.pathParams() == null)
+				response = getNotFound(data);
 			else {
 				for (HTTPHandler handler : handlers) {
 					if (!handler.matchesRoute(data, route, invoked)) continue;
