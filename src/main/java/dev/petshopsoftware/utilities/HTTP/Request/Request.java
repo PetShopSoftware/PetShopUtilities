@@ -148,7 +148,7 @@ public class Request {
 		SSLContextBuilder sslBuilder = SSLContextBuilder.create();
 		if (this.trustAllCerts)
 			sslBuilder.loadTrustMaterial(null, (chain, authType) -> true);
-		else if (!certificates.isEmpty()) {
+		if (!certificates.isEmpty()) {
 			KeyStore keyStore = KeyStore.getInstance(KeyStore.getDefaultType());
 			keyStore.load(null, null);
 			for (Map.Entry<String, X509Certificate> entry : certificates.entrySet())

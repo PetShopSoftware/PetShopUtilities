@@ -5,12 +5,15 @@ import com.fasterxml.jackson.databind.JsonNode;
 import dev.petshopsoftware.utilities.JSON.JSON;
 import org.apache.http.Header;
 import org.apache.http.HttpResponse;
+import org.apache.http.NameValuePair;
 import org.apache.http.client.methods.HttpRequestBase;
 import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.util.EntityUtils;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.util.Arrays;
+import java.util.List;
 
 public class Response {
 	private final CloseableHttpClient client;
@@ -110,5 +113,26 @@ public class Response {
 			message.append("  ").append(body());
 		}
 		return message.toString();
+	}
+
+	public List<String> headers(String name) {
+		Header[] headers = response.getHeaders(name);
+		if (headers == null) return null;
+		return Arrays.stream(headers).map(NameValuePair::getName).toList();
+	}
+
+	public String header(String name) {
+		List<String> headers = headers(name);
+		if (headers == null) return null;
+		return headers.get(0);
+	}
+
+	public String cookie(String name) {
+		List<String> cookies = headers("set-cookie");
+		for (String cookie : cookies) {
+			String[] cookieParts = cookie.split("; ")[0].split("=", 2);
+			return cookieParts[1];
+		}
+		return null;
 	}
 }
