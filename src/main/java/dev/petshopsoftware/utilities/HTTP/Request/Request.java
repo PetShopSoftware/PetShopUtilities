@@ -214,7 +214,11 @@ public class Request {
 
 		HttpRequestBase httpRequest = createHTTPRequest(uri);
 
-		this.headers.forEach((key, values) -> values.forEach(value -> httpRequest.addHeader(key, value)));
+		this.headers.forEach((key, values) -> {
+			String value = String.join("; ", values);
+			httpRequest.addHeader(key, value);
+		});
+		
 		if (httpRequest instanceof HttpEntityEnclosingRequestBase && this.body != null)
 			((HttpEntityEnclosingRequestBase) httpRequest).setEntity(new ByteArrayEntity(this.body));
 
