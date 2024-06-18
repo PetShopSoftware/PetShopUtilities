@@ -5,12 +5,20 @@ import dev.petshopsoftware.utilities.HTTP.Server.HTTPResponseException;
 
 public class RequestUtils {
 	public static HTTPResponse handleDefaultResponses(Response response) {
-		HTTPResponse httpResponse = switch (response.statusCode()) {
-			case 400 -> HTTPResponse.BAD_REQUEST;
-			case 404 -> HTTPResponse.NOT_FOUND;
-			case 500 -> HTTPResponse.INTERNAL_ERROR;
-			default -> null;
-		};
+		HTTPResponse httpResponse;
+		switch (response.statusCode()) {
+			case 400:
+				httpResponse = HTTPResponse.BAD_REQUEST;
+				break;
+			case 404:
+				httpResponse = HTTPResponse.NOT_FOUND;
+				break;
+			case 500:
+				httpResponse = HTTPResponse.INTERNAL_ERROR;
+				break;
+			default:
+				httpResponse = null;
+		}
 		if (httpResponse != null && response.jsonBody().path("message").isTextual())
 			httpResponse = httpResponse.message(response.jsonBody().path("message").asText());
 		return httpResponse;

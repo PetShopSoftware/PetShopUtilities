@@ -16,6 +16,7 @@ import org.apache.http.ssl.SSLContextBuilder;
 import org.apache.http.util.EntityUtils;
 
 import java.io.IOException;
+import java.io.UnsupportedEncodingException;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.URLEncoder;
@@ -145,10 +146,14 @@ public class Request {
 		StringBuilder postData = new StringBuilder();
 		for (Iterator<Map.Entry<String, JsonNode>> it = form.fields(); it.hasNext(); ) {
 			Map.Entry<String, JsonNode> field = it.next();
-			if (!postData.isEmpty()) postData.append('&');
-			postData.append(URLEncoder.encode(field.getKey(), StandardCharsets.UTF_8));
-			postData.append('=');
-			postData.append(URLEncoder.encode(field.getValue().asText(), StandardCharsets.UTF_8));
+			try {
+				if (postData.length() != 0) postData.append('&');
+				postData.append(URLEncoder.encode(field.getKey(), "UTF-8"));
+				postData.append('=');
+				postData.append(URLEncoder.encode(field.getValue().asText(), "UTF-8"));
+			} catch (UnsupportedEncodingException e) {
+				throw new RuntimeException(e);
+			}
 		}
 		byte[] postDataBytes = postData.toString().getBytes(StandardCharsets.UTF_8);
 		this.body(postDataBytes);
@@ -187,12 +192,23 @@ public class Request {
 	private HttpRequestBase createHTTPRequest(URI uri) {
 		HttpRequestBase httpRequest;
 		switch (this.method) {
-			case GET -> httpRequest = new HttpGet(uri);
-			case POST -> httpRequest = new HttpPost(uri);
-			case PUT -> httpRequest = new HttpPut(uri);
-			case PATCH -> httpRequest = new HttpPatch(uri);
-			case DELETE -> httpRequest = new HttpDelete(uri);
-			default -> throw new RuntimeException("HTTPMethod " + this.method + "is not supported.");
+			case GET:
+				httpRequest = new HttpGet(uri);
+				break;
+			case POST:
+				httpRequest = new HttpPost(uri);
+				break;
+			case PUT:
+				httpRequest = new HttpPut(uri);
+				break;
+			case PATCH:
+				httpRequest = new HttpPatch(uri);
+				break;
+			case DELETE:
+				httpRequest = new HttpDelete(uri);
+				break;
+			default:
+				throw new RuntimeException("HTTPMethod " + this.method + "is not supported.");
 		}
 		return httpRequest;
 	}
@@ -218,7 +234,7 @@ public class Request {
 			String value = String.join("; ", values);
 			httpRequest.addHeader(key, value);
 		});
-		
+
 		if (httpRequest instanceof HttpEntityEnclosingRequestBase && this.body != null)
 			((HttpEntityEnclosingRequestBase) httpRequest).setEntity(new ByteArrayEntity(this.body));
 

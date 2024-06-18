@@ -3,8 +3,8 @@ package dev.petshopsoftware.utilities.Logging;
 import java.io.*;
 import java.nio.file.Paths;
 import java.text.SimpleDateFormat;
+import java.util.Arrays;
 import java.util.Date;
-import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedDeque;
@@ -32,7 +32,7 @@ public class Logger {
 					throw new RuntimeException("Could not close log file writer.", e);
 				}
 			}
-			EXECUTOR_SERVICE.close();
+			EXECUTOR_SERVICE.shutdown();
 		}));
 	}
 
@@ -72,7 +72,7 @@ public class Logger {
 	}
 
 	public static void globalHandlers(LogHandler... handlers) {
-		GLOBAL_HANDLERS.addAll(List.of(handlers));
+		GLOBAL_HANDLERS.addAll(Arrays.asList(handlers));
 	}
 
 	public static String getLogsDirectory() {
@@ -149,8 +149,8 @@ public class Logger {
 			if (message.getLevel() == Level.ERROR || message.getLevel() == Level.FATAL)
 				printStream = System.err;
 			else printStream = System.out;
-			if (printStream instanceof StreamRedirect.RedirectedPrintStream redirectedPrintStream)
-				redirectedPrintStream.printMessage(message);
+			if (printStream instanceof StreamRedirect.RedirectedPrintStream)
+				((StreamRedirect.RedirectedPrintStream) printStream).printMessage(message);
 			else printStream.println(message.colored());
 		}
 
@@ -274,7 +274,7 @@ public class Logger {
 	}
 
 	public Logger handlers(LogHandler... handlers) {
-		this.handlers.addAll(List.of(handlers));
+		this.handlers.addAll(Arrays.asList(handlers));
 		return this;
 	}
 }

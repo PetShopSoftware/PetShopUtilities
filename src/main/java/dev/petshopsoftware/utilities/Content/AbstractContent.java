@@ -32,7 +32,7 @@ public abstract class AbstractContent<T> implements JSON {
 			ContentType type = ContentType.valueOf(contentJSON.get("type").asText());
 			String[] classList;
 			if (contentJSON.has("class"))
-				classList = MAPPER.convertValue(contentJSON.get("class"), new TypeReference<>() {
+				classList = MAPPER.convertValue(contentJSON.get("class"), new TypeReference<String[]>() {
 				});
 			else classList = new String[0];
 

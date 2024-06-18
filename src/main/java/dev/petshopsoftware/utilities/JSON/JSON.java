@@ -20,7 +20,7 @@ public interface JSON {
 			.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
 
 	static <T> T convert(JsonNode object) {
-		return MAPPER.convertValue(object, new TypeReference<>() {
+		return MAPPER.convertValue(object, new TypeReference<T>() {
 		});
 	}
 
