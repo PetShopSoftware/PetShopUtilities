@@ -8,8 +8,8 @@ import dev.petshopsoftware.utilities.JSON.JSON;
 import dev.petshopsoftware.utilities.Util.ParsingMode;
 import dev.petshopsoftware.utilities.Util.StringUtils;
 
+import javax.xml.bind.DatatypeConverter;
 import java.nio.charset.StandardCharsets;
-import java.util.HexFormat;
 import java.util.Map;
 
 public class HTTPData {
@@ -138,7 +138,7 @@ public class HTTPData {
 			StringBuilder bodyBuilder = new StringBuilder();
 			if (this.route != null && bodyParseError == null) {
 				if (route.parsingMode() == ParsingMode.RAW)
-					bodyBuilder.append(HexFormat.of().formatHex(rawBody));
+					bodyBuilder.append(DatatypeConverter.printHexBinary(rawBody));
 				else if (route.parsingMode() == ParsingMode.STRING)
 					bodyBuilder.append(body);
 				else if (route.parsingMode() == ParsingMode.JSON)

@@ -15,10 +15,8 @@ import org.apache.http.impl.EnglishReasonPhraseCatalog;
 
 import javax.naming.NameNotFoundException;
 import javax.net.ssl.*;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.OutputStream;
-import java.io.UnsupportedEncodingException;
+import javax.xml.bind.DatatypeConverter;
+import java.io.*;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.net.InetSocketAddress;
@@ -29,6 +27,7 @@ import java.security.KeyStore;
 import java.security.SecureRandom;
 import java.security.cert.X509Certificate;
 import java.util.*;
+import java.util.stream.Collectors;
 
 public class HTTPServer {
 	private final String id;
@@ -186,7 +185,7 @@ public class HTTPServer {
 				builder.append("Body:\n");
 				StringBuilder bodyBuilder = new StringBuilder();
 				if (response.getParsingMode() == ParsingMode.RAW)
-					bodyBuilder.append(HexFormat.of().formatHex(bytes));
+					bodyBuilder.append(DatatypeConverter.printHexBinary(bytes));
 				else bodyBuilder.append(new String(bytes));
 				builder.append(StringUtils.padLeft(bodyBuilder.toString(), 2));
 			}
@@ -233,8 +232,8 @@ public class HTTPServer {
 		String[] pairs = query.split("&");
 		for (String pair : pairs) {
 			int idx = pair.indexOf("=");
-			String key = idx > 0 ? URLDecoder.decode(pair.substring(0, idx), StandardCharsets.UTF_8) : pair;
-			String value = idx > 0 && pair.length() > idx + 1 ? URLDecoder.decode(pair.substring(idx + 1), StandardCharsets.UTF_8) : null;
+			String key = idx > 0 ? URLDecoder.decode(pair.substring(0, idx), "UTF-8") : pair;
+			String value = idx > 0 && pair.length() > idx + 1 ? URLDecoder.decode(pair.substring(idx + 1), "UTF-8") : null;
 			result.put(key, value);
 		}
 		return result;
@@ -242,7 +241,14 @@ public class HTTPServer {
 	}
 
 	protected byte[] readBody(HttpExchange exchange) throws IOException {
-		return exchange.getRequestBody().readAllBytes();
+		InputStream inputStream = exchange.getRequestBody();
+		ByteArrayOutputStream buffer = new ByteArrayOutputStream();
+		int len;
+		byte[] data = new byte[1024];
+		while ((len = inputStream.read(data, 0, data.length)) != -1)
+			buffer.write(data, 0, len);
+		buffer.flush();
+		return buffer.toByteArray();
 	}
 
 	protected void send(HttpExchange exchange, int code, byte[] bytes) throws IOException {
@@ -274,7 +280,7 @@ public class HTTPServer {
 			int c1 = (int) r1.chars().filter(c -> c == ':').count();
 			int c2 = (int) r2.chars().filter(c -> c == ':').count();
 			return Integer.compare(c1, c2);
-		}).toList();
+		}).collect(Collectors.toList());
 	}
 
 	public HTTPServer routers(String basePath, Class<?>... routers) {
@@ -320,7 +326,7 @@ public class HTTPServer {
 	}
 
 	public HTTPServer handlers(HTTPHandler... handlers) {
-		this.handlers.addAll(List.of(handlers));
+		this.handlers.addAll(Arrays.asList(handlers));
 		return this;
 	}
 

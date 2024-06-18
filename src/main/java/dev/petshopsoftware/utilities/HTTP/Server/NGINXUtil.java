@@ -5,6 +5,7 @@ import dev.petshopsoftware.utilities.Util.ConfigUtil;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -30,7 +31,7 @@ public class NGINXUtil {
 		Path enabledPath = Paths.get(NGINX_FOLDER + "/sites-enabled/" + serverBlockFileName);
 		boolean reload = false;
 		String serverBlockConfig = buildServerBlock(subdomain, domain, sslPath, port);
-		if (!Files.exists(availablePath) || !Files.readString(availablePath).trim().equals(serverBlockConfig.trim())) {
+		if (!Files.exists(availablePath) || !new String(Files.readAllBytes(availablePath), StandardCharsets.UTF_8).trim().equals(serverBlockConfig.trim())) {
 			Files.write(availablePath, serverBlockConfig.getBytes());
 			reload = true;
 		}
