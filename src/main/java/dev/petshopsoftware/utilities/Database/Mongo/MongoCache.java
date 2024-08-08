@@ -16,9 +16,9 @@ public class MongoCache {
 
 	private final ConcurrentMap<String, Document> cacheMap = new ConcurrentHashMap<>();
 	private final ScheduledExecutorService cleaner = Executors.newSingleThreadScheduledExecutor();
-	private final long duration;
-	private final TimeUnit unit;
 	private final Logger logger;
+	private long duration;
+	private TimeUnit unit;
 
 	protected MongoCache(MongoCollection<Document> collection, long duration, TimeUnit unit) {
 		String id = collection.getNamespace().getFullName();
@@ -45,8 +45,16 @@ public class MongoCache {
 		return duration;
 	}
 
+	public void setDuration(long duration) {
+		this.duration = duration;
+	}
+
 	public TimeUnit getUnit() {
 		return unit;
+	}
+
+	public void setUnit(TimeUnit unit) {
+		this.unit = unit;
 	}
 
 	public Logger getLogger() {
