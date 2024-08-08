@@ -24,16 +24,6 @@ public class Logger {
 	static {
 		StreamRedirect.redirect();
 		setupOutputFile();
-		Runtime.getRuntime().addShutdownHook(new Thread(() -> {
-			if (WRITER != null) {
-				try {
-					WRITER.close();
-				} catch (IOException e) {
-					throw new RuntimeException("Could not close log file writer.", e);
-				}
-			}
-			EXECUTOR_SERVICE.shutdown();
-		}));
 	}
 
 	private final String id;
@@ -134,6 +124,17 @@ public class Logger {
 			}
 	}
 
+	public static void shutdown() {
+		if (WRITER != null) {
+			try {
+				WRITER.close();
+			} catch (IOException e) {
+				throw new RuntimeException("Could not close log file writer.", e);
+			}
+		}
+		EXECUTOR_SERVICE.shutdown();
+	}
+
 	public void log(final LogMessage logMessage) {
 		LogMessage message = logMessage;
 		for (LogHandler handler : GLOBAL_HANDLERS)
@@ -160,17 +161,19 @@ public class Logger {
 			handler.postLog(message);
 
 		LogMessage finalMessage = message;
-		EXECUTOR_SERVICE.submit(() -> {
-			if (WRITER != null) {
-				try {
-					WRITER.write(finalMessage.toString());
-					WRITER.newLine();
-					WRITER.flush();
-				} catch (IOException e) {
-					this.error(LogMessage.fromException(new RuntimeException("Could not write to log file.")));
+		if (!EXECUTOR_SERVICE.isTerminated() && !EXECUTOR_SERVICE.isShutdown()) {
+			EXECUTOR_SERVICE.submit(() -> {
+				if (WRITER != null) {
+					try {
+						WRITER.write(finalMessage.toString());
+						WRITER.newLine();
+						WRITER.flush();
+					} catch (IOException e) {
+						this.error(LogMessage.fromException(new RuntimeException("Could not write to log file.")));
+					}
 				}
-			}
-		});
+			});
+		}
 	}
 
 	public void log(Level level, String message, String format) {
